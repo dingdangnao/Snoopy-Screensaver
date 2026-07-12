@@ -1,5 +1,12 @@
+<p align="center">
+  <img
+    src="https://cloud.dingdangnao.com/260712/d2ea199a-1322-4921-9015-829fb8c594d2.png"
+    alt="preview"
+    width="600"
+  >
+</p>
 
-# Apple TV Snoopy Screensaver for macOS
+# Snoopy Screensaver for macOS
 
 Credits: 叮噹鬧 | DINGDANGNAO
 

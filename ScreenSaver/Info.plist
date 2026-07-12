@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Snoopy TV</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleIconFile</key>
+	<string>ScreenSaverPreview.png</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>叮噹鬧 | DINGDANGNAO</string>
+	<key>SnoopyCredits</key>
+	<string>叮噹鬧 | DINGDANGNAO</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>NSPrincipalClass</key>
+	<string>DingDangSnoopySaverView</string>
+	<key>ScreenSaverExports</key>
+	<dict>
+		<key>CFBundleVersion</key>
+		<string>1</string>
+	</dict>
+</dict>
+</plist>

@@ -1,0 +1,401 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A001 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B001 /* JSONValue.swift */; };
+		A002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002 /* Models.swift */; };
+		A003 /* IndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B003 /* IndexStore.swift */; };
+		A004 /* RelevancyScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B004 /* RelevancyScorer.swift */; };
+		A005 /* SelectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B005 /* SelectionEngine.swift */; };
+		A006 /* SnoopySaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B006 /* SnoopySaverView.swift */; };
+		A007 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B007 /* Cocoa.framework */; };
+		A008 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B008 /* AVFoundation.framework */; };
+		A009 /* ScreenSaver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B009 /* ScreenSaver.framework */; };
+		A016 /* CalendarResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B020 /* CalendarResolver.swift */; };
+		A017 /* SnoopyAssets in Resources */ = {isa = PBXBuildFile; fileRef = B021 /* SnoopyAssets */; };
+		A018 /* asset-index.json in Resources */ = {isa = PBXBuildFile; fileRef = B022 /* asset-index.json */; };
+		A019 /* ScreenSaverPreview.png in Resources */ = {isa = PBXBuildFile; fileRef = B023 /* ScreenSaverPreview.png */; };
+		A020 /* halftone_pattern.png in Resources */ = {isa = PBXBuildFile; fileRef = B024 /* halftone_pattern.png */; };
+		A021 /* SnoopyPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B025 /* SnoopyPreferences.swift */; };
+		A023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B026 /* Assets.xcassets */; };
+		A024 /* SpritePlacementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B027 /* SpritePlacementResolver.swift */; };
+		A025 /* PlaybackStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B028 /* PlaybackStateMachine.swift */; };
+		A026 /* DerivedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = B029 /* DerivedMedia.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		43532DEE30036A1E00FA5EE1 /* project.pbxproj */ = {isa = PBXFileReference; lastKnownFileType = text.pbxproject; path = project.pbxproj; sourceTree = "<group>"; };
+		B001 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		B002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B003 /* IndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexStore.swift; sourceTree = "<group>"; };
+		B004 /* RelevancyScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelevancyScorer.swift; sourceTree = "<group>"; };
+		B005 /* SelectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionEngine.swift; sourceTree = "<group>"; };
+		B006 /* SnoopySaverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoopySaverView.swift; sourceTree = "<group>"; };
+		B007 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		B008 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		B009 /* ScreenSaver.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenSaver.framework; path = System/Library/Frameworks/ScreenSaver.framework; sourceTree = SDKROOT; };
+		B010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B011 /* Snoopy TV.saver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Snoopy TV.saver"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B020 /* CalendarResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarResolver.swift; sourceTree = "<group>"; };
+		B021 /* SnoopyAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SnoopyAssets; sourceTree = "<group>"; };
+		B022 /* asset-index.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "asset-index.json"; sourceTree = "<group>"; };
+		B023 /* ScreenSaverPreview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ScreenSaverPreview.png; sourceTree = "<group>"; };
+		B024 /* halftone_pattern.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = halftone_pattern.png; sourceTree = "<group>"; };
+		B025 /* SnoopyPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoopyPreferences.swift; sourceTree = "<group>"; };
+		B026 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B027 /* SpritePlacementResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpritePlacementResolver.swift; sourceTree = "<group>"; };
+		B028 /* PlaybackStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackStateMachine.swift; sourceTree = "<group>"; };
+		B029 /* DerivedMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DerivedMedia.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A007 /* Cocoa.framework in Frameworks */,
+				A008 /* AVFoundation.framework in Frameworks */,
+				A009 /* ScreenSaver.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D001 = {
+			isa = PBXGroup;
+			children = (
+				D002 /* Sources/SnoopyTVCore */,
+				D003 /* ScreenSaver */,
+				D004 /* Frameworks */,
+				D007 /* Resources */,
+				43532DEE30036A1E00FA5EE1 /* project.pbxproj */,
+			);
+			sourceTree = "<group>";
+		};
+		D002 /* Sources/SnoopyTVCore */ = {
+			isa = PBXGroup;
+			children = (
+				B001 /* JSONValue.swift */,
+				B002 /* Models.swift */,
+				B003 /* IndexStore.swift */,
+				B004 /* RelevancyScorer.swift */,
+				B005 /* SelectionEngine.swift */,
+				B020 /* CalendarResolver.swift */,
+				B025 /* SnoopyPreferences.swift */,
+				B027 /* SpritePlacementResolver.swift */,
+				B028 /* PlaybackStateMachine.swift */,
+				B029 /* DerivedMedia.swift */,
+			);
+			path = Sources/SnoopyTVCore;
+			sourceTree = "<group>";
+		};
+		D003 /* ScreenSaver */ = {
+			isa = PBXGroup;
+			children = (
+				B006 /* SnoopySaverView.swift */,
+				B010 /* Info.plist */,
+			);
+			path = ScreenSaver;
+			sourceTree = "<group>";
+		};
+		D004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B007 /* Cocoa.framework */,
+				B008 /* AVFoundation.framework */,
+				B009 /* ScreenSaver.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B011 /* Snoopy TV.saver */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B021 /* SnoopyAssets */,
+				B022 /* asset-index.json */,
+				B023 /* ScreenSaverPreview.png */,
+				B024 /* halftone_pattern.png */,
+				B026 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E001 /* SnoopyTVScreenSaver */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F002 /* Build configuration list for PBXNativeTarget "SnoopyTVScreenSaver" */;
+			buildPhases = (
+				C002 /* Sources */,
+				C001 /* Frameworks */,
+				C003 /* Resources */,
+				C007 /* Copy Derived Media */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SnoopyTVScreenSaver;
+			productName = "Snoopy TV";
+			productReference = B011 /* Snoopy TV.saver */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					E001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = F001 /* Build configuration list for PBXProject "SnoopyTVScreenSaver" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D001;
+			productRefGroup = D005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E001 /* SnoopyTVScreenSaver */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A017 /* SnoopyAssets in Resources */,
+				A018 /* asset-index.json in Resources */,
+				A019 /* ScreenSaverPreview.png in Resources */,
+				A020 /* halftone_pattern.png in Resources */,
+				A023 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C007 /* Copy Derived Media */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.derived-media",
+			);
+			name = "Copy Derived Media";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/DerivedMedia/derived-media-index.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nSOURCE=\"$SRCROOT/.derived-media\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DerivedMedia\"\n\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A001 /* JSONValue.swift in Sources */,
+				A002 /* Models.swift in Sources */,
+				A003 /* IndexStore.swift in Sources */,
+				A004 /* RelevancyScorer.swift in Sources */,
+				A005 /* SelectionEngine.swift in Sources */,
+				A006 /* SnoopySaverView.swift in Sources */,
+				A016 /* CalendarResolver.swift in Sources */,
+				A021 /* SnoopyPreferences.swift in Sources */,
+				A024 /* SpritePlacementResolver.swift in Sources */,
+				A025 /* PlaybackStateMachine.swift in Sources */,
+				A026 /* DerivedMedia.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = HUR49FVWF4;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = HUR49FVWF4;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				INFOPLIST_FILE = ScreenSaver/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Snoopy;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dingdangnao.screensaver.snoopy;
+				PRODUCT_NAME = "Snoopy TV";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5.0;
+				WRAPPER_EXTENSION = saver;
+			};
+			name = Debug;
+		};
+		F013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				INFOPLIST_FILE = ScreenSaver/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Snoopy;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dingdangnao.screensaver.snoopy;
+				PRODUCT_NAME = "Snoopy TV";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				WRAPPER_EXTENSION = saver;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F001 /* Build configuration list for PBXProject "SnoopyTVScreenSaver" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F010 /* Debug */,
+				F011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F002 /* Build configuration list for PBXNativeTarget "SnoopyTVScreenSaver" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F012 /* Debug */,
+				F013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E002 /* Project object */;
+}

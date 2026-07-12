@@ -1,0 +1,20 @@
+# macOS / Xcode user state
+.DS_Store
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# SwiftPM and local build products
+.tmp/
+.build/
+.build-*/
+.build-settings/
+.derived-media/
+
+# Local Apple TV media and machine-specific generated index. These are large,
+# may contain absolute paths, and are not part of the source distribution.
+Resources/SnoopyAssets/
+
+# Local diagnostics
+*.log
+*.xcresult

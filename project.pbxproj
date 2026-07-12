@@ -1,0 +1,129 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {
+  };
+  objectVersion = 56;
+  objects = {
+
+/* Begin PBXBuildFile section */
+    1D6058900D05DD3D006BFB54 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D60588D0D05DD3D006BFB54 /* main.m */; };
+    1D6058910D05DD3E006BFB54 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D60588F0D05DD3E006BFB54 /* AppDelegate.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+    1D60588D0D05DD3D006BFB54 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+    1D60588F0D05DD3E006BFB54 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+    1D60588C0D05DD3D006BFB54 = {
+      isa = PBXGroup;
+      children = (
+        1D60588D0D05DD3D006BFB54 /* main.m */,
+        1D60588F0D05DD3E006BFB54 /* AppDelegate.m */,
+      );
+      sourceTree = "<group>";
+    };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+    1D6058910D05DD3D006BFB00 /* screensaver */ = {
+      isa = PBXNativeTarget;
+      buildPhases = (
+        1D6058920D05DD3D006BFB54 /* Sources */,
+        1D6058930D05DD3D006BFB54 /* Frameworks */,
+        1D6058940D05DD3D006BFB54 /* Copy Bundle Resources */,
+        1D6058990D05DD3D006BFB54 /* Run Script */, // Old problematic script - removed per instructions
+      );
+      buildRules = (
+      );
+      dependencies = (
+      );
+      name = screensaver;
+      productName = screensaver;
+      productType = "com.apple.product-type.screensaver";
+    };
+    1D6058910D05DD3D006BFB01 /* settings app */ = {
+      isa = PBXNativeTarget;
+      buildPhases = (
+        1D6058920D05DD3D006BFB51 /* Sources */,
+        1D6058930D05DD3D006BFB52 /* Frameworks */,
+        1D6058940D05DD3D006BFB53 /* Copy Bundle Resources */,
+      );
+      buildRules = (
+      );
+      dependencies = (
+      );
+      name = "settings app";
+      productName = "settings app";
+      productType = "com.apple.product-type.application";
+    };
+/* End PBXNativeTarget section */
+
+/* Begin PBXShellScriptBuildPhase section */
+    1D6058990D05DD3D006BFB54 /* Run Script */ = {
+      isa = PBXShellScriptBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+      );
+      inputPaths = (
+      );
+      name = "Old Run Script (removed)";
+      outputPaths = (
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+      shellPath = /bin/sh;
+      shellScript = "# Old script causing build failures - removed";
+    };
+    1D60589A0D05DD3D006BFB55 /* CopyScreensaverToBuildOutput */ = {
+      isa = PBXShellScriptBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+      );
+      inputPaths = (
+      );
+      name = "CopyScreensaverToBuildOutput";
+      outputPaths = (
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+      shellPath = /bin/sh;
+      shellScript = "OUTPUT_DIR=\"${PROJECT_DIR}/BuildOutput\"\nmkdir -p \"$OUTPUT_DIR\"\ncp -R \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.saver\" \"$OUTPUT_DIR/\"";
+    };
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+    1D6058920D05DD3D006BFB54 /* Sources */ = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        1D6058900D05DD3D006BFB54 /* main.m in Sources */,
+        1D6058910D05DD3E006BFB54 /* AppDelegate.m in Sources */,
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+    1D6058930D05DD3D006BFB54 /* Frameworks */ = {
+      isa = PBXFrameworksBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+    1D6058940D05DD3D006BFB54 /* Copy Bundle Resources */ = {
+      isa = PBXResourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+/* End PBXResourcesBuildPhase section */
+
+  };
+  rootObject = 1D6058910D05DD3D006BFB00 /* screensaver */;
+}

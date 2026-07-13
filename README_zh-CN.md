@@ -27,7 +27,7 @@
 
 下载已构建完成的最新版 **Snoopy Screensaver for macOS**：
 
-* [Google Drive](https://drive.google.com/file/d/1xeIGd-na8fgRbtPliKTqP6ZnWVftGzr4/view?usp=sharing)
+* [Google Drive](https://drive.google.com/file/d/1VbsZkGmdhh9eCr4kWAGJ0xXPu_r9sAKx/view?usp=share_link)
 * [百度网盘](https://pan.baidu.com/s/1iUb5QOQVEUUUVpUHGfWW6w?pwd=4xvm)  提取码：`4xvm`
 
 ---

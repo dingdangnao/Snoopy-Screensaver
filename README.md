@@ -1,60 +1,108 @@
 <p align="center">
   <img
     src="https://cloud.dingdangnao.com/260712/d2ea199a-1322-4921-9015-829fb8c594d2.png"
-    alt="preview"
+    alt="Snoopy Screensaver Preview"
     width="600"
-  >
+  />
+</p>
+
+<p align="center">
+  <strong>English</strong> |
+  <a href="./README_zh-CN.md">简体中文</a>
 </p>
 
 # Snoopy Screensaver for macOS
 
-Credits: 叮噹鬧 | DINGDANGNAO
+A macOS adaptation of the Snoopy screen saver from Apple TV.
 
-Apple TV 史努比屏幕保护程序移植
+> This is an unofficial project and is not affiliated with Apple, Peanuts Worldwide, or any other relevant rights holders.
 
-整个项目使用 Codex 编写😂
+**Created by 叮噹鬧 | DINGDANGNAO**
 
----
-
-## 仓库内容与素材包
-
-GitHub 仓库只包含播放引擎、Xcode 工程，素材文件需在下方单独下载。
-
-从网盘下载并解压后 将 `SnoopyAssets` 文件夹放到 `Resources` 文件夹中。
-
-Google Drive
-```
-https://drive.google.com/file/d/1nMUCcU_zkRBOaJ5IQS8BWdLUJLnOv4Ai/view?usp=sharing
-```
-
-Quark 夸克网盘
-```
-链接：https://pan.quark.cn/s/554975cdd205?pwd=vKiR
-提取码：vKiR
-```
-
-百度云
-```
-链接: https://pan.baidu.com/s/1sfme9oQ2ruLxBNSkK5SFOg
-提取码: 53cm 
-```
+This project was built primarily with Codex 😂
 
 ---
 
-## 构建
+## Download the Latest Version
 
-项目包含 `SnoopyTVScreenSaver.xcodeproj`，只有一个 Screen Saver target。部署目标为 macOS 14，屏保构建为 `arm64e + x86_64`：
+Download the latest prebuilt version of **Snoopy Screensaver for macOS**:
+
+* [Google Drive](https://drive.google.com/file/d/1xeIGd-na8fgRbtPliKTqP6ZnWVftGzr4/view?usp=sharing)
+* [Baidu Netdisk](https://pan.baidu.com/s/120IiW4qjyqbIzk_4HZkYug?pwd=f6ea), passcode: `f6ea`
+
+---
+
+## Project Contents
+
+This repository includes:
+
+* The screen saver playback engine
+* The Xcode project
+* Asset loading and playback logic
+
+This repository does not directly host any Snoopy videos, images, or other media assets.
+
+An additional asset package of approximately **7.2 GB** is required to run the project. After downloading and extracting it, place the `SnoopyAssets` folder inside the project's `Resources` directory.
+
+Example directory structure:
+
+```text
+SnoopyTVScreenSaver/
+├── Resources/
+│   └── SnoopyAssets/
+├── SnoopyTVScreenSaver.xcodeproj
+└── ...
+```
+
+### Asset Package Downloads
+
+* [Google Drive](https://drive.google.com/file/d/1nMUCcU_zkRBOaJ5IQS8BWdLUJLnOv4Ai/view?usp=sharing)
+* [Quark Cloud Drive](https://pan.quark.cn/s/554975cdd205?pwd=vKiR), passcode: `vKiR`
+* [Baidu Netdisk](https://pan.baidu.com/s/1sfme9oQ2ruLxBNSkK5SFOg), passcode: `53cm`
+
+These download links are provided solely for project compatibility testing and technical research. No guarantee is made regarding link availability or file integrity.
+
+---
+
+## System Requirements
+
+* macOS 14 or later
+* Xcode
+* An Apple Silicon or Intel Mac
+
+---
+
+## Building
+
+The project includes `SnoopyTVScreenSaver.xcodeproj` with a single Screen Saver target.
 
 ```sh
-xcodebuild -project SnoopyTVScreenSaver.xcodeproj \
-  -scheme SnoopyTVScreenSaver -configuration Release \
-  ARCHS='arm64e x86_64' ONLY_ACTIVE_ARCH=NO build
+xcodebuild \
+  -project SnoopyTVScreenSaver.xcodeproj \
+  -scheme SnoopyTVScreenSaver \
+  -configuration Release \
+  ONLY_ACTIVE_ARCH=NO \
+  build
 ```
 
-共享 Scheme 在成功构建后会自动签名并安装 `Snoopy TV.saver` 到 `~/Library/Screen Savers/`。
+Supported processor architectures depend on the Xcode Build Settings and the resulting build output.
+
+If the project includes a post-build installation script, a successful build will install `Snoopy TV.saver` to:
+
+```text
+~/Library/Screen Savers/
+```
+
+You can also install the screen saver manually by double-clicking the `.saver` file.
 
 ---
 
-## 发布说明
+## Copyright and Disclaimer
 
-Snoopy、Peanuts、Apple TV 及相关名称、角色和媒体资源归各自权利人所有。本项目是非官方的技术研究与兼容播放实现，不包含也不授权分发相关媒体。公开发布前请自行选择适合源代码的许可证；在许可证确定前，仓库默认保留全部代码权利。
+Snoopy, Peanuts, Apple TV, and all related names, characters, trademarks, and media assets belong to their respective rights holders.
+
+This is an unofficial technical research and compatibility playback project. It is not affiliated with, authorized by, sponsored by, endorsed by, or developed in cooperation with Apple, Peanuts Worldwide, or any other relevant rights holders.
+
+Third-party media assets do not belong to the author of this project. Users are solely responsible for downloading, using, and storing such assets and must comply with all applicable laws, regulations, and requirements imposed by the relevant rights holders.
+
+Copyright © 2026 DINGDANGNAO. All rights reserved.

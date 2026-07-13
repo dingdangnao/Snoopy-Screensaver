@@ -109,6 +109,79 @@ final class SelectionTests: XCTestCase {
         XCTAssertGreaterThan(genericCount, 0)
     }
 
+    func testSelectionPolicyKeepsContextBoostButCorrectsHistoricalOverplay() {
+        let generic = asset("generic")
+        let snow = asset("snow", condition: "snowy")
+        let policy = SelectionPolicy()
+        let context = SelectionContext(weatherConditions: ["snowy"])
+
+        let fresh = Dictionary(uniqueKeysWithValues: policy.weightedAssets(
+            from: [generic, snow], context: context, memory: SelectionMemory(), pool: "activeVideos"
+        ).map { ($0.asset.id, $0.weight) })
+        XCTAssertGreaterThan(fresh["snow"]!, fresh["generic"]!)
+
+        let historical = SelectionMemory(
+            playCountsByPool: ["activeVideos": ["generic": 0, "snow": 15]]
+        )
+        let corrected = Dictionary(uniqueKeysWithValues: policy.weightedAssets(
+            from: [generic, snow], context: context, memory: historical, pool: "activeVideos"
+        ).map { ($0.asset.id, $0.weight) })
+        XCTAssertLessThan(corrected["snow"]!, corrected["generic"]!)
+    }
+
+    func testPrimaryVisualPoolsKeepLongCooldownAcrossSessionRestarts() {
+        let assets = (0..<25).map { asset("scene-\($0)") }
+        let policy = SelectionPolicy()
+        let context = SelectionContext()
+        var memory = SelectionMemory()
+        var selectedIDs: [String] = []
+
+        for seed in UInt64(0)..<100 {
+            var weighted = policy.weightedAssets(
+                from: assets, context: context, memory: memory, pool: "activeVideos"
+            )
+            let limit = policy.recentLimit(for: "activeVideos", candidateCount: weighted.count)
+            let recent = Set(memory.recentIDs(in: "activeVideos", limit: limit))
+            let fresh = weighted.filter { !recent.contains($0.asset.id) }
+            if !fresh.isEmpty { weighted = fresh }
+            var session = PlaybackSessionState()
+            let selected = session.chooseWeighted(
+                from: weighted, pool: "activeVideos", seed: seed
+            )!
+            XCTAssertFalse(memory.recentIDs(in: "activeVideos", limit: limit).contains(selected.id))
+            memory.record(selected.id, in: "activeVideos", recentLimit: limit)
+            selectedIDs.append(selected.id)
+        }
+
+        XCTAssertEqual(policy.recentLimit(for: "activeVideos", candidateCount: assets.count), 12)
+        for index in selectedIDs.indices where index >= 12 {
+            XCTAssertFalse(selectedIDs[(index - 12)..<index].contains(selectedIDs[index]))
+        }
+    }
+
+    func testFreeWeatherCodesMapToAuthoredSnoopyConditions() {
+        XCTAssertEqual(
+            SnoopyWeatherConditionMapper.conditions(wmoCode: 0, isDay: true),
+            ["clear", "sunny"]
+        )
+        XCTAssertEqual(
+            SnoopyWeatherConditionMapper.conditions(wmoCode: 63, windSpeed: 35),
+            ["rainy", "windy"]
+        )
+        XCTAssertEqual(
+            SnoopyWeatherConditionMapper.conditions(wmoCode: 67),
+            ["icy", "rainy"]
+        )
+        XCTAssertEqual(
+            SnoopyWeatherConditionMapper.conditions(wmoCode: 95),
+            ["stormy"]
+        )
+        XCTAssertEqual(
+            SnoopyWeatherConditionMapper.conditions(wmoCode: -1),
+            []
+        )
+    }
+
     func testCalendarResolverCoversSummerAndPeanutsDates() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

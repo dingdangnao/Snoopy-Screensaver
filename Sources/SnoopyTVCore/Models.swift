@@ -357,6 +357,10 @@ public struct SelectionMemory: Codable, Sendable {
         lastSelectedIDByPool[pool]
     }
 
+    public func playCount(for id: String, in pool: String) -> Int {
+        playCountsByPool[pool]?[id] ?? 0
+    }
+
     public mutating func record(_ id: String, in pool: String, recentLimit: Int = 5) {
         lastSelectedID = id
         recentIDs.removeAll { $0 == id }

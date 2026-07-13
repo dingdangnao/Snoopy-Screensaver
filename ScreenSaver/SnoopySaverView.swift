@@ -125,6 +125,8 @@ final class SnoopySaverView: ScreenSaverView {
     private var isPlaying = false
     private var isStopping = true
     private var currentAssetID: String?
+    private var weatherRefreshTask: Task<Void, Never>?
+    private lazy var configurationController = SnoopyConfigurationController()
 
     @objc(initWithFrame:isPreview:)
     override init?(frame: NSRect, isPreview: Bool) {
@@ -168,15 +170,22 @@ final class SnoopySaverView: ScreenSaverView {
         // Start identically in Preview and full-screen mode. The first media
         // tree installs synchronously and its decoded first-frame placeholder
         // remains visible during AVPlayer preroll; no poster/cover interstitial.
+        refreshWeatherIfNeeded()
         playNext()
     }
 
     override func stopAnimation() {
         isStopping = true
+        weatherRefreshTask?.cancel()
+        weatherRefreshTask = nil
         cancelPendingAdvance()
         cleanCurrentPlayback()
         super.stopAnimation()
     }
+
+    override var hasConfigureSheet: Bool { true }
+
+    override var configureSheet: NSWindow? { configurationController.window }
 
     override func draw(_ rect: NSRect) {
         (layer?.backgroundColor.map(NSColor.init(cgColor:)) ?? NSColor.black)?.setFill()
@@ -560,7 +569,9 @@ final class SnoopySaverView: ScreenSaverView {
         let now = Date()
         let override = SnoopyPreferences.defaults.string(forKey: SnoopyPreferences.weatherOverrideKey)
             .flatMap { $0.isEmpty ? nil : $0 }
-        let snapshot = SnoopyPreferences.weatherSnapshot().flatMap { $0.isUsable ? $0 : nil }
+        let snapshot = SnoopyPreferences.weatherEnabled
+            ? SnoopyPreferences.weatherSnapshot().flatMap { $0.isUsable ? $0 : nil }
+            : nil
         let weather = override.map { Set([$0]) } ?? Set(snapshot?.conditions ?? [])
         return SelectionContext(
             date: now,
@@ -573,6 +584,37 @@ final class SnoopySaverView: ScreenSaverView {
             ),
             moonPhases: [SnoopyCalendarResolver.moonCondition(for: now)]
         )
+    }
+
+    private func refreshWeatherIfNeeded() {
+        guard SnoopyPreferences.weatherEnabled else { return }
+        if let snapshot = SnoopyPreferences.weatherSnapshot(), !snapshot.needsRefresh { return }
+        let city = SnoopyPreferences.defaults.string(forKey: SnoopyPreferences.cityNameKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard SnoopyPreferences.weatherLocation() != nil || city.count >= 2 else { return }
+        weatherRefreshTask?.cancel()
+        weatherRefreshTask = Task {
+            do {
+                let client = SnoopyWeatherClient()
+                let location: SnoopyWeatherLocation
+                if let saved = SnoopyPreferences.weatherLocation() {
+                    location = saved
+                } else {
+                    location = try await client.resolve(city: city)
+                    guard !Task.isCancelled else { return }
+                    SnoopyPreferences.save(weatherLocation: location)
+                }
+                let snapshot = try await client.fetch(location: location)
+                guard !Task.isCancelled else { return }
+                SnoopyPreferences.save(weatherSnapshot: snapshot)
+                NSLog("SnoopyTVScreenSaver: weather refreshed location=%@ source=%@ conditions=%@",
+                      location.name, snapshot.source ?? "unknown", snapshot.conditions.joined(separator: ","))
+            } catch {
+                if !Task.isCancelled {
+                    NSLog("SnoopyTVScreenSaver: weather refresh failed: %@", error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func playNext() {
@@ -722,27 +764,12 @@ final class SnoopySaverView: ScreenSaverView {
     }
 
     private func sessionChoice(from assets: [AssetRecord], pool: String, context: SelectionContext) -> AssetRecord? {
-        let scorer = RelevancyScorer()
-        let uniqueAssets = assets.reduce(into: [String: AssetRecord]()) { result, asset in
-            result[asset.id] = asset
-        }
-        var weighted = uniqueAssets.values.compactMap { asset -> WeightedAsset? in
-            guard let relevance = scorer.relevanceScore(asset, context: context) else { return nil }
-            let weight: Int
-            switch relevance {
-            case 65...: weight = 8
-            case 25...: weight = 4
-            case 1...: weight = 2
-            default: weight = 1
-            }
-            return WeightedAsset(asset: asset, weight: weight)
-        }
-        if weighted.isEmpty {
-            weighted = uniqueAssets.values.filter { !$0.hasConditions }.map {
-                WeightedAsset(asset: $0, weight: 1)
-            }
-        }
-        let persistedRecent = Set(memory.recentIDs(in: pool))
+        let policy = SelectionPolicy()
+        var weighted = policy.weightedAssets(
+            from: assets, context: context, memory: memory, pool: pool
+        )
+        let recentLimit = policy.recentLimit(for: pool, candidateCount: weighted.count)
+        let persistedRecent = Set(memory.recentIDs(in: pool, limit: recentLimit))
         let fresh = weighted.filter { !persistedRecent.contains($0.asset.id) }
         if !fresh.isEmpty {
             weighted = fresh
@@ -752,7 +779,7 @@ final class SnoopySaverView: ScreenSaverView {
         defer { seed &+= 1 }
         let selected = sessionState.chooseWeighted(from: weighted, pool: pool, seed: seed)
         if let selected {
-            memory.record(selected.id, in: pool)
+            memory.record(selected.id, in: pool, recentLimit: recentLimit)
         }
         return selected
     }

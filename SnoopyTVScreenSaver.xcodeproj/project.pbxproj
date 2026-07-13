@@ -26,6 +26,9 @@
 		A024 /* SpritePlacementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B027 /* SpritePlacementResolver.swift */; };
 		A025 /* PlaybackStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B028 /* PlaybackStateMachine.swift */; };
 		A026 /* DerivedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = B029 /* DerivedMedia.swift */; };
+		A027 /* SelectionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B030 /* SelectionPolicy.swift */; };
+		A028 /* WeatherSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B031 /* WeatherSupport.swift */; };
+		A029 /* SnoopyConfigurationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B032 /* SnoopyConfigurationController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +54,9 @@
 		B027 /* SpritePlacementResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpritePlacementResolver.swift; sourceTree = "<group>"; };
 		B028 /* PlaybackStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackStateMachine.swift; sourceTree = "<group>"; };
 		B029 /* DerivedMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DerivedMedia.swift; sourceTree = "<group>"; };
+		B030 /* SelectionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionPolicy.swift; sourceTree = "<group>"; };
+		B031 /* WeatherSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherSupport.swift; sourceTree = "<group>"; };
+		B032 /* SnoopyConfigurationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoopyConfigurationController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +97,8 @@
 				B027 /* SpritePlacementResolver.swift */,
 				B028 /* PlaybackStateMachine.swift */,
 				B029 /* DerivedMedia.swift */,
+				B030 /* SelectionPolicy.swift */,
+				B031 /* WeatherSupport.swift */,
 			);
 			path = Sources/SnoopyTVCore;
 			sourceTree = "<group>";
@@ -99,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				B006 /* SnoopySaverView.swift */,
+				B032 /* SnoopyConfigurationController.swift */,
 				B010 /* Info.plist */,
 			);
 			path = ScreenSaver;
@@ -237,6 +246,9 @@
 				A024 /* SpritePlacementResolver.swift in Sources */,
 				A025 /* PlaybackStateMachine.swift in Sources */,
 				A026 /* DerivedMedia.swift in Sources */,
+				A027 /* SelectionPolicy.swift in Sources */,
+				A028 /* WeatherSupport.swift in Sources */,
+				A029 /* SnoopyConfigurationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

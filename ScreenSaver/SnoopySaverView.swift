@@ -1,5 +1,6 @@
 import AVFoundation
 import Cocoa
+import CoreVideo
 import ImageIO
 import ScreenSaver
 
@@ -11,6 +12,7 @@ final class SnoopySaverView: ScreenSaverView {
     private enum TransitionStage: String { case hide, reveal }
     private enum PendingSceneStage {
         case activeScene(AssetRecord)
+        case activeSceneWithReveal(AssetRecord, SceneTransitionSelection)
         case transition(TransitionStage, SceneTransitionSelection)
     }
 
@@ -20,6 +22,7 @@ final class SnoopySaverView: ScreenSaverView {
     private var sessionState = PlaybackSessionState()
     private var pendingBasePoseID: String?
     private var pendingCharacterAssetIDs: [String] = []
+    private var pendingIdleEntrySequence: CharacterPlaybackSequence?
     private var pendingSceneStages: [PendingSceneStage] = []
     private var currentPaletteAssetID: String?
     private var currentSceneOffset: PointRecord?
@@ -77,7 +80,15 @@ final class SnoopySaverView: ScreenSaverView {
     private var playerBoundaryObserver: Any?
     private var watchdogWorkItem: DispatchWorkItem?
     private var advanceWorkItem: DispatchWorkItem?
-    private var frameTimer: Timer?
+    private var frameDisplayLink: CVDisplayLink?
+    private var frameSequenceURLs: [URL] = []
+    private var frameSequenceIndex = 0
+    private var frameSequenceGeneration: UInt64 = 0
+    private var frameSequenceLastHostTime: UInt64 = 0
+    private var frameSequenceMaxPixelSize = 0
+    private var frameSequenceVisitorControlsCompletion = false
+    private var frameSequenceDecodeMisses = 0
+    private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var backgroundColorView: NSView?
     private var halftoneView: NSImageView?
     private var backgroundImageView: NSImageView?
@@ -96,8 +107,8 @@ final class SnoopySaverView: ScreenSaverView {
     private var pendingFrameKeys = Set<String>()
     private let decodedFrameCache: NSCache<NSString, CGImage> = {
         let cache = NSCache<NSString, CGImage>()
-        cache.totalCostLimit = 64 * 1024 * 1024
-        cache.countLimit = 16
+        cache.totalCostLimit = 32 * 1024 * 1024
+        cache.countLimit = 8
         return cache
     }()
     private let frameDecodeQueue: OperationQueue = {
@@ -130,6 +141,7 @@ final class SnoopySaverView: ScreenSaverView {
         animationTimeInterval = 1.0 / 30.0
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        installMemoryPressureHandler()
         loadSelectionMemory()
         loadStore()
     }
@@ -141,6 +153,7 @@ final class SnoopySaverView: ScreenSaverView {
         sessionState = PlaybackSessionState()
         pendingBasePoseID = nil
         pendingCharacterAssetIDs.removeAll()
+        pendingIdleEntrySequence = nil
         pendingSceneStages.removeAll()
         currentPaletteAssetID = nil
         currentSceneOffset = nil
@@ -179,7 +192,13 @@ final class SnoopySaverView: ScreenSaverView {
     private func loadStore() {
         let defaults = SnoopyPreferences.defaults
         let configuredPath = defaults.string(forKey: SnoopyPreferences.assetIndexPathKey)
-        let path = configuredPath ?? defaultIndexURL()?.path
+        // The published saver is self-contained and no longer has a settings
+        // UI. Prefer its bundled index so a stale path saved by an older build
+        // cannot leave the screen black after the source tree is moved.
+        let compatibleConfiguredPath = configuredPath.flatMap {
+            FileManager.default.fileExists(atPath: $0) ? $0 : nil
+        }
+        let path = defaultIndexURL()?.path ?? compatibleConfiguredPath
         guard let path else {
             NSLog("SnoopyTVScreenSaver: 未找到 asset-index.json")
             return
@@ -191,9 +210,16 @@ final class SnoopySaverView: ScreenSaverView {
             let sourceDerived = URL(fileURLWithPath: #filePath)
                 .deletingLastPathComponent().deletingLastPathComponent()
                 .appendingPathComponent(".derived-media", isDirectory: true)
-            derivedMediaStore = [bundledDerived, sourceDerived].compactMap { $0 }.lazy.compactMap(DerivedMediaStore.init(root:)).first
+            if ProcessInfo.processInfo.environment["SNOOPY_DISABLE_DERIVED_MEDIA"] == "1" {
+                derivedMediaStore = nil
+            } else {
+                derivedMediaStore = [bundledDerived, sourceDerived].compactMap { $0 }
+                    .lazy.compactMap(DerivedMediaStore.init(root:)).first
+            }
             NSLog("SnoopyTVScreenSaver: derived proxies=%ld", derivedMediaStore?.index.proxies.count ?? 0)
-            if configuredPath == nil { defaults.set(path, forKey: SnoopyPreferences.assetIndexPathKey) }
+            if configuredPath != nil, compatibleConfiguredPath == nil {
+                defaults.removeObject(forKey: SnoopyPreferences.assetIndexPathKey)
+            }
         } catch {
             NSLog("SnoopyTVScreenSaver: %@", error.localizedDescription)
         }
@@ -266,8 +292,7 @@ final class SnoopySaverView: ScreenSaverView {
         currentAssetID = nil
         watchdogWorkItem?.cancel()
         watchdogWorkItem = nil
-        frameTimer?.invalidate()
-        frameTimer = nil
+        stopFrameDisplayLink()
         frameGeneration &+= 1
         frameDecodeQueue.cancelAllOperations()
         frameDecodeLock.lock()
@@ -380,6 +405,33 @@ final class SnoopySaverView: ScreenSaverView {
         if isStopping {
             retirePreviousTransitionSurface()
         }
+    }
+
+    private func installMemoryPressureHandler() {
+        guard memoryPressureSource == nil else { return }
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.frameDecodeQueue.cancelAllOperations()
+            self.frameDecodeLock.lock()
+            self.pendingFrameKeys.removeAll()
+            self.frameDecodeLock.unlock()
+            self.decodedFrameCache.removeAllObjects()
+            NSLog("SnoopyTVScreenSaver: cleared HEIC prefetch cache after memory pressure")
+        }
+        source.resume()
+        memoryPressureSource = source
+    }
+
+    private func stopFrameDisplayLink() {
+        if let frameDisplayLink { CVDisplayLinkStop(frameDisplayLink) }
+        frameDisplayLink = nil
+        frameSequenceURLs.removeAll(keepingCapacity: false)
+        frameSequenceIndex = 0
+        frameSequenceLastHostTime = 0
+        frameSequenceMaxPixelSize = 0
+        frameSequenceVisitorControlsCompletion = false
+        frameSequenceDecodeMisses = 0
     }
 
     private func retirePreviousCompositeSurface() {
@@ -533,9 +585,16 @@ final class SnoopySaverView: ScreenSaverView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
+        let nextStagePreservesIdle: Bool
+        if let first = pendingSceneStages.first,
+           case .activeSceneWithReveal = first {
+            nextStagePreservesIdle = true
+        } else {
+            nextStagePreservesIdle = false
+        }
         let continuingIdleComposite = sessionState.currentIdleSceneID != nil
             && playerLayer == nil
-            && pendingSceneStages.isEmpty
+            && (pendingSceneStages.isEmpty || nextStagePreservesIdle)
         // Keep the authored outgoing Idle surface for both character-to-
         // character swaps and Idle -> Hide -> ActiveScene. Previously the
         // rotation path cleared it before Hide was drawable, then exposed its
@@ -558,6 +617,18 @@ final class SnoopySaverView: ScreenSaverView {
             case .activeScene(let asset):
                 kind = .video
                 started = startActiveVideo(asset, from: store, context: context)
+            case .activeSceneWithReveal(let asset, let selection):
+                kind = .video
+                if startActiveVideo(asset, from: store, context: context) {
+                    // The outgoing RPH/Idle surface remains above this movie
+                    // while Reveal is prepared. Start both on the same host
+                    // clock only after every transition renderer is drawable.
+                    player?.pause()
+                    started = playSceneTransitionStage(.reveal, selection: selection,
+                                                       from: store, context: context)
+                } else {
+                    started = false
+                }
             case .transition(let phase, let selection):
                 kind = .composite
                 started = playSceneTransitionStage(phase, selection: selection, from: store, context: context)
@@ -717,6 +788,14 @@ final class SnoopySaverView: ScreenSaverView {
         if let selection = chooseSceneTransition(
             for: selected, context: context, from: store, requiresSceneChange: requiresNewIdle
         ) {
+            let basePoses = store.eligible(store.playableAssets(), on: context.date).filter {
+                $0.kind == "characterBasePose"
+            }
+            guard let targetPose = sessionChoice(from: basePoses, pool: "basePoses", context: context),
+                  let entrySequence = playbackGraph?.idleEntrySequence(to: targetPose.id) else {
+                return false
+            }
+            pendingIdleEntrySequence = entrySequence
             sessionState.recordTransitionPair(selection.pairID)
             if selection.preventsIdleSceneChange {
                 consecutiveTransitionsPreventingIdleSceneChange += 1
@@ -727,14 +806,27 @@ final class SnoopySaverView: ScreenSaverView {
             // transparent to enter the IdleScene below; Reveal makes it
             // opaque again to exit IdleScene. Keep one moving player through
             // the complete Hide -> Active -> Reveal cycle.
+            if hasOutgoingIdle {
+                guard let currentPoseID = sessionState.currentBasePoseID,
+                      let exitSequence = playbackGraph?.idleExitSequence(from: currentPoseID) else {
+                    pendingIdleEntrySequence = nil
+                    return false
+                }
+                // First drain BP_To_RPH over the intact IdleScene. The next
+                // stage starts ActiveScene+Reveal together; Hide later returns
+                // through the already-selected RPH_To_BP target.
+                pendingCharacterAssetIDs = exitSequence.assets.map(\.id)
+                pendingSceneStages = [
+                    .activeSceneWithReveal(selected, selection),
+                    .transition(.hide, selection),
+                ]
+                return playIdleCharacterComposite(from: store, context: context)
+            }
             pendingSceneStages = [.transition(.hide, selection)]
             guard startActiveVideo(selected, from: store, context: context) else {
                 pendingSceneStages.removeAll()
+                pendingIdleEntrySequence = nil
                 return false
-            }
-            if hasOutgoingIdle,
-               !playSceneTransitionStage(.reveal, selection: selection, from: store, context: context) {
-                NSLog("SnoopyTVScreenSaver: idle exit transition unavailable; continuing moving active video %@", selected.id)
             }
             return true
         }
@@ -903,6 +995,10 @@ final class SnoopySaverView: ScreenSaverView {
         watchdogWorkItem?.cancel()
         watchdogWorkItem = nil
         holdingActiveFrameForIdleEntry = true
+        // Freeze on the first frame of the authored overlap window. The
+        // ActiveScene resumes on the same host clock as mask/outline/ST, so a
+        // slow preroll can never run the movie into its invalid tail.
+        player?.pause()
         let movingTime = player?.currentTime().seconds ?? 0
         NSLog("SnoopyTVScreenSaver: begin moving idle entry pair=%@ activeTime=%.3f rate=%.2f",
               selection.pairID, movingTime, player?.rate ?? 0)
@@ -1276,7 +1372,12 @@ final class SnoopySaverView: ScreenSaverView {
         maskLayer.frame = activeSurfaceLayer.bounds
         maskLayer.videoGravity = .resizeAspect
         hostLayer.addSublayer(sceneLayer)
-        activeSurfaceLayer.mask = maskLayer
+        // A mask does not reliably receive a drawable while detached, but
+        // assigning it to the live ActiveScene during preparation changes the
+        // visible movie before the transition is ready. Warm it inside the
+        // nearly-invisible host, then atomically reparent it as the mask.
+        maskLayer.opacity = 0.001
+        hostLayer.addSublayer(maskLayer)
 
         let outlinePlayer = AVPlayer(url: outlineURL)
         let outlineLayer = AVPlayerLayer(player: outlinePlayer)
@@ -1318,6 +1419,28 @@ final class SnoopySaverView: ScreenSaverView {
         var allPrerollsSucceeded = true
         var didStart = false
         var didBeginPreroll = false
+        var didScheduleRetry = false
+        let retryPreparation: (String) -> Void = { [weak self] reason in
+            guard let self, !didStart, !didScheduleRetry,
+                  self.transitionPlaybackGeneration == generation else { return }
+            didScheduleRetry = true
+            NSLog("SnoopyTVScreenSaver: retaining outgoing surface and retrying %@ transition (%@)",
+                  stage.rawValue, reason)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            activeSurfaceLayer.mask = nil
+            if activeSurfaceLayer.superlayer == nil { self.layer?.addSublayer(activeSurfaceLayer) }
+            self.cleanTransitionOverlay()
+            CATransaction.commit()
+            self.idleExitTransitionInProgress = false
+            self.currentAssetID = self.activeVideoAssetID
+            self.isPlaying = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self, self.isPlaying, !self.isStopping else { return }
+                _ = self.playSceneTransitionStage(stage, selection: selection,
+                                                  from: store, context: context)
+            }
+        }
         let startSynchronizedPlayback: () -> Void = { [weak self] in
             guard let self, !didStart, self.isPlaying,
                   self.transitionPlaybackGeneration == generation else { return }
@@ -1325,7 +1448,7 @@ final class SnoopySaverView: ScreenSaverView {
             let succeeded = allPrerollsSucceeded
             resultLock.unlock()
             guard succeeded else {
-                self.finishCurrentPlayback("transition preroll failed")
+                retryPreparation("preroll failed")
                 return
             }
             didStart = true
@@ -1349,9 +1472,16 @@ final class SnoopySaverView: ScreenSaverView {
                 activeSurfaceLayer.removeFromSuperlayer()
                 hostLayer.insertSublayer(activeSurfaceLayer, above: sceneLayer)
             }
+            maskLayer.removeFromSuperlayer()
+            maskLayer.opacity = 1
+            activeSurfaceLayer.mask = maskLayer
             CATransaction.commit()
             let hostTime = CMClockGetTime(CMClockGetHostTimeClock())
                 + CMTime(seconds: 0.06, preferredTimescale: 600)
+            if let activePlayer = self.player {
+                activePlayer.automaticallyWaitsToMinimizeStalling = false
+                activePlayer.setRate(1, time: activePlayer.currentTime(), atHostTime: hostTime)
+            }
             self.transitionPlayers.forEach { transitionPlayer in
                 // Host-time synchronized playback is rejected by AVFoundation
                 // while the player's automatic stall waiting is enabled.
@@ -1393,14 +1523,12 @@ final class SnoopySaverView: ScreenSaverView {
                 }
             }
             group.notify(queue: .main) {
-                let rendererDeadline = ProcessInfo.processInfo.systemUptime + 0.6
                 var waitForDrawable: (() -> Void)!
                 waitForDrawable = {
                     guard self.isPlaying,
                           self.transitionPlaybackGeneration == generation,
                           !didStart else { return }
-                    if synchronizedVideoLayers.allSatisfy(\.isReadyForDisplay)
-                        || ProcessInfo.processInfo.systemUptime >= rendererDeadline {
+                    if synchronizedVideoLayers.allSatisfy(\.isReadyForDisplay) {
                         startSynchronizedPlayback()
                     } else {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) {
@@ -1428,7 +1556,7 @@ final class SnoopySaverView: ScreenSaverView {
                         resultLock.lock()
                         allPrerollsSucceeded = false
                         resultLock.unlock()
-                        self.finishCurrentPlayback("transition item failed to become ready")
+                        retryPreparation("item failed to become ready")
                     default:
                         break
                     }
@@ -1439,10 +1567,10 @@ final class SnoopySaverView: ScreenSaverView {
             guard let self, !didStart, self.isPlaying,
                   self.transitionPlaybackGeneration == generation else { return }
             NSLog("SnoopyTVScreenSaver: transition preroll timeout stage=%@", stage.rawValue)
-            self.finishCurrentPlayback("transition preroll timeout")
+            retryPreparation("drawable/preroll timeout")
         }
         transitionPrerollTimeout = timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: timeout)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: timeout)
         NSLog("SnoopyTVScreenSaver: transition prepared stage=%@ category=%@ pair=%@ parameters=%@ retainIdle=%d matteFrame=%@ sceneBounds=%@ heldActive=%d",
               stage.rawValue, selection.categoryID, selection.pairID, parameterID,
               selection.preventsIdleSceneChange ? 1 : 0,
@@ -1712,6 +1840,13 @@ final class SnoopySaverView: ScreenSaverView {
                   didFinishPreroll, videoLayer.isReadyForDisplay, self.isPlaying,
                   self.compositePlaybackGeneration == generation,
                   self.player === queue else { return }
+            if let backgroundLayer = self.backgroundVideoLayer,
+               !backgroundLayer.isReadyForDisplay {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) {
+                    startPlaybackIfReady()
+                }
+                return
+            }
             didStart = true
             self.compositePrerollTimeout?.cancel()
             self.compositePrerollTimeout = nil
@@ -1720,6 +1855,9 @@ final class SnoopySaverView: ScreenSaverView {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             host.layer?.opacity = 1
+            self.backgroundVideoPlaceholderLayer?.removeFromSuperlayer()
+            self.backgroundVideoPlaceholderLayer = nil
+            self.backgroundVideoReadyObservation = nil
             self.compositeVideoPlaceholderLayer?.removeFromSuperlayer()
             self.compositeVideoPlaceholderLayer = nil
             self.retirePreviousPlaybackSurfaces()
@@ -1817,9 +1955,17 @@ final class SnoopySaverView: ScreenSaverView {
         ) else { return nil }
         var cursor = CMTime.zero
         var copiedTransform = false
+        var assetCache: [URL: AVURLAsset] = [:]
         do {
             for url in urls {
-                let asset = AVURLAsset(url: url)
+                let asset: AVURLAsset
+                if let cached = assetCache[url] {
+                    asset = cached
+                } else {
+                    let created = AVURLAsset(url: url)
+                    assetCache[url] = created
+                    asset = created
+                }
                 guard let source = asset.tracks(withMediaType: .video).first else { return nil }
                 let duration = asset.duration
                 guard duration.isValid, CMTimeCompare(duration, .zero) > 0 else { return nil }
@@ -2049,6 +2195,17 @@ final class SnoopySaverView: ScreenSaverView {
             .flatMap { videoURL(for: idle, sprite: $0, store: store) }
         guard backgroundImageURL != nil || backgroundVideoURL != nil else { return false }
         idleSceneAnimationCount += 1
+        let palette = paletteColors(from: store, context: context, idleScene: idle)
+        if pendingCharacterAssetIDs.isEmpty, pendingSceneStages.isEmpty,
+           let entrySequence = pendingIdleEntrySequence {
+            pendingIdleEntrySequence = nil
+            sessionState.currentBasePoseID = entrySequence.endPoseID
+            return playCharacterSequence(
+                entrySequence, idle: idle,
+                backgroundImageURL: backgroundImageURL, backgroundVideoURL: backgroundVideoURL,
+                backgroundSprite: backgroundSprite, palette: palette, store: store, visitor: nil
+            )
+        }
         // The numeric prefix is an authoring wave, not a character family.
         // All four base poses are 101 assets while later 102/103/104 idle
         // scenes and actions deliberately reference those same 101_BP states.
@@ -2066,7 +2223,6 @@ final class SnoopySaverView: ScreenSaverView {
             pose = selected
             sessionState.currentBasePoseID = selected.id
         }
-        let palette = paletteColors(from: store, context: context, idleScene: idle)
         // A queued BP transition/reaction/action must finish against the same
         // idle scene and palette. This mirrors CharacterAnimationManager's
         // pendingAnimationQueue instead of re-randomizing every segment.
@@ -2139,15 +2295,15 @@ final class SnoopySaverView: ScreenSaverView {
         if let forcedID = ProcessInfo.processInfo.environment["SNOOPY_FORCE_CHARACTER_ASSET_ID"] {
             allActions = allActions.filter { $0.id == forcedID }
         }
-        let queue = characterAnimationQueue(
+        let sequence = characterAnimationSequence(
             startingAt: pose.id, actions: allActions, context: coupledContext
         )
-        if let first = queue.first {
-            pendingCharacterAssetIDs = queue.dropFirst().map(\.id)
-            return playCharacterSegment(first, idle: idle, currentPose: pose.id,
-                                        backgroundImageURL: backgroundImageURL, backgroundVideoURL: backgroundVideoURL,
-                                        backgroundSprite: backgroundSprite,
-                                        palette: palette, store: store, visitor: visitor)
+        if let sequence {
+            return playCharacterSequence(
+                sequence, idle: idle,
+                backgroundImageURL: backgroundImageURL, backgroundVideoURL: backgroundVideoURL,
+                backgroundSprite: backgroundSprite, palette: palette, store: store, visitor: visitor
+            )
         }
         if let plan = phasedVideoPlan(for: pose, store: store, repeatOneShot: true) {
             return startVideoComposition(
@@ -2176,22 +2332,60 @@ final class SnoopySaverView: ScreenSaverView {
     /// pendingAnimationQueue. Restricting selection to actions that already
     /// started at the current pose made every A node favor the same outgoing
     /// edge and left BP_A_To_BP_B/C assets unused.
-    private func characterAnimationQueue(
+    private func characterAnimationSequence(
         startingAt startPoseID: String, actions: [AssetRecord], context: SelectionContext
-    ) -> [AssetRecord] {
-        guard let graph = playbackGraph else { return [] }
+    ) -> CharacterPlaybackSequence? {
+        guard let graph = playbackGraph else { return nil }
         let reachable = actions.filter {
-            graph.animationQueue(currentPoseID: startPoseID, target: $0) != nil
+            graph.actionSequence(currentPoseID: startPoseID, target: $0) != nil
         }
         guard let target = sessionChoice(
             from: reachable, pool: "characterActions", context: context
-        ), let queue = graph.animationQueue(currentPoseID: startPoseID, target: target) else {
-            return []
+        ), let sequence = graph.actionSequence(currentPoseID: startPoseID, target: target) else {
+            return nil
         }
         NSLog("SnoopyTVScreenSaver: character queue %@",
-              queue.map { "\($0.id)[\($0.startCharacterBasePoseID ?? "?")->\($0.endCharacterBasePoseID ?? "?")]" }
+              sequence.assets.map { "\($0.id)[\($0.startCharacterBasePoseID ?? "?")->\($0.endCharacterBasePoseID ?? "?")]" }
                 .joined(separator: " -> "))
-        return queue
+        return sequence
+    }
+
+    private func playCharacterSequence(
+        _ sequence: CharacterPlaybackSequence, idle: AssetRecord,
+        backgroundImageURL: URL?, backgroundVideoURL: URL?, backgroundSprite: SpriteRecord?,
+        palette: (background: NSColor, overlay: NSColor?), store: AssetStore,
+        visitor: VisitorPlaybackPlan?
+    ) -> Bool {
+        var plans: [PhasedVideoPlan] = []
+        for asset in sequence.assets {
+            let repeatBase = asset.kind == "characterBasePose"
+            guard let plan = phasedVideoPlan(for: asset, store: store, repeatOneShot: repeatBase) else {
+                // Keep the graph intact on the HEIC fallback path. The legacy
+                // segment player still retains the previous surface between
+                // each node, and action/RPH nodes append their target BP.
+                var fallback = sequence.assets
+                if fallback.last?.kind == "characterBasePose" { fallback.removeLast() }
+                guard let first = fallback.first else { return false }
+                pendingCharacterAssetIDs = Array(fallback.dropFirst()).map(\.id)
+                return playCharacterSegment(
+                    first, idle: idle, currentPose: sequence.startPoseID,
+                    backgroundImageURL: backgroundImageURL, backgroundVideoURL: backgroundVideoURL,
+                    backgroundSprite: backgroundSprite, palette: palette, store: store, visitor: visitor
+                )
+            }
+            plans.append(plan)
+        }
+        guard let firstPlan = plans.first else { return false }
+        let combined = PhasedVideoPlan(
+            urls: plans.flatMap(\.urls), sprite: firstPlan.sprite,
+            loopCount: plans.reduce(0) { $0 + $1.loopCount }
+        )
+        return startVideoComposition(
+            assetID: "\(idle.id)+" + sequence.assets.map(\.id).joined(separator: "+"),
+            backgroundImage: backgroundImageURL, backgroundVideo: backgroundVideoURL,
+            backgroundSprite: backgroundSprite, plan: combined, palette: palette,
+            pendingPoseID: sequence.endPoseID, visitor: visitor
+        )
     }
 
     private func playCharacterSegment(
@@ -2452,9 +2646,10 @@ final class SnoopySaverView: ScreenSaverView {
         frameGeneration &+= 1
         let generation = frameGeneration
         let maxPixelSize = maximumPixelSize(for: foregroundSprite)
-        // Decode only a tiny startup buffer synchronously. A single worker
-        // stays ahead after that, avoiding bursty CPU and memory pressure.
-        for url in Array(frameURLs.prefix(12)) {
+        // Decode only the first two frames synchronously. The display link
+        // advances strictly one decoded frame at a time; asynchronous prefetch
+        // therefore cannot cause a clock-driven jump or expose empty contents.
+        for url in Array(frameURLs.prefix(2)) {
             cacheDecodedImage(at: url, maxPixelSize: maxPixelSize)
         }
         guard let firstFrame = cachedImage(for: frameURLs[0])
@@ -2468,53 +2663,109 @@ final class SnoopySaverView: ScreenSaverView {
                   assetID)
             return false
         }
+        sequenceView.layer?.contents = firstFrame
+        preloadFrames(frameURLs, from: 1, count: 8, generation: generation, maxPixelSize: maxPixelSize)
+        var commitWhenReady: (() -> Void)!
+        commitWhenReady = { [weak self, weak sequenceView] in
+            guard let self, let sequenceView, self.isPlaying,
+                  self.frameGeneration == generation, self.frameView === sequenceView else { return }
+            if let backgroundLayer = self.backgroundVideoLayer,
+               !backgroundLayer.isReadyForDisplay {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) { commitWhenReady() }
+                return
+            }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            sequenceView.layer?.opacity = 1
+            self.backgroundVideoPlaceholderLayer?.removeFromSuperlayer()
+            self.backgroundVideoPlaceholderLayer = nil
+            self.backgroundVideoReadyObservation = nil
+            self.retirePreviousPlaybackSurfaces()
+            CATransaction.commit()
+            if let characterAnimationKind {
+                self.sessionState.recordCharacterAnimation(
+                    characterAnimationKind, duration: TimeInterval(frameURLs.count) / 24.0
+                )
+            }
+            if !self.startFrameDisplayLink(
+                urls: frameURLs, generation: generation, maxPixelSize: maxPixelSize,
+                visitorControlsCompletion: visitorControlsCompletion
+            ) {
+                // Keep the already-committed first frame mounted. The watchdog
+                // can advance without exposing the palette or root layer.
+                NSLog("SnoopyTVScreenSaver: unable to create HEIC display link for %@", assetID)
+            }
+            self.installWatchdog(defaultSeconds: max(15, estimatedSeconds, visitorSeconds) + 3)
+        }
+        DispatchQueue.main.async(execute: commitWhenReady)
+        return true
+    }
+
+    private func startFrameDisplayLink(
+        urls: [URL], generation: UInt64, maxPixelSize: Int,
+        visitorControlsCompletion: Bool
+    ) -> Bool {
+        stopFrameDisplayLink()
+        frameSequenceURLs = urls
+        frameSequenceGeneration = generation
+        frameSequenceMaxPixelSize = maxPixelSize
+        frameSequenceVisitorControlsCompletion = visitorControlsCompletion
+        var link: CVDisplayLink?
+        guard CVDisplayLinkCreateWithActiveCGDisplays(&link) == kCVReturnSuccess,
+              let link else { return false }
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        CVDisplayLinkSetOutputCallback(link, { _, _, outputTime, _, _, context in
+            guard let context else { return kCVReturnError }
+            let view = Unmanaged<SnoopySaverView>.fromOpaque(context).takeUnretainedValue()
+            let hostTime = outputTime.pointee.hostTime
+            DispatchQueue.main.async { [weak view] in view?.advanceFrameSequence(hostTime: hostTime) }
+            return kCVReturnSuccess
+        }, context)
+        frameDisplayLink = link
+        return CVDisplayLinkStart(link) == kCVReturnSuccess
+    }
+
+    private func advanceFrameSequence(hostTime: UInt64) {
+        guard isPlaying, frameGeneration == frameSequenceGeneration,
+              !frameSequenceURLs.isEmpty, frameView != nil else { return }
+        if frameSequenceLastHostTime == 0 {
+            frameSequenceLastHostTime = hostTime
+            NSLog("SnoopyTVScreenSaver: HEIC display link started frames=%ld hostTime=%llu",
+                  frameSequenceURLs.count, hostTime)
+            return
+        }
+        let frameInterval = UInt64(CVGetHostClockFrequency() / 24.0)
+        guard hostTime >= frameSequenceLastHostTime + frameInterval else { return }
+        let nextIndex = frameSequenceIndex + 1
+        guard nextIndex < frameSequenceURLs.count else {
+            let misses = frameSequenceDecodeMisses
+            let visitorControls = frameSequenceVisitorControlsCompletion
+            stopFrameDisplayLink()
+            if !visitorControls {
+                finishCurrentPlayback("composite ended; decodeMisses=\(misses)")
+            }
+            return
+        }
+        let nextURL = frameSequenceURLs[nextIndex]
+        guard let image = cachedImage(for: nextURL) else {
+            frameSequenceDecodeMisses += 1
+            requestDecodedImage(at: nextURL, generation: frameSequenceGeneration,
+                                maxPixelSize: frameSequenceMaxPixelSize)
+            return
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        sequenceView.layer?.contents = firstFrame
-        sequenceView.layer?.opacity = 1
-        retirePreviousPlaybackSurfaces()
+        frameView?.layer?.contents = image
         CATransaction.commit()
-        if let characterAnimationKind {
-            sessionState.recordCharacterAnimation(
-                characterAnimationKind, duration: TimeInterval(frameURLs.count) / 24.0
-            )
+        frameSequenceIndex = nextIndex
+        if nextIndex == 1 {
+            NSLog("SnoopyTVScreenSaver: HEIC sequence advancing at display refresh")
         }
-        preloadFrames(frameURLs, from: 0, count: 32, generation: generation, maxPixelSize: maxPixelSize)
-
-        let startTime = ProcessInfo.processInfo.systemUptime
-        var lastDisplayedIndex = 0
-        var missedFrameTicks = 0
-        let timer = Timer(timeInterval: 1.0 / 24.0, repeats: true) { [weak self, weak sequenceView] timer in
-            guard let self, let sequenceView, self.isPlaying, self.frameGeneration == generation else {
-                timer.invalidate()
-                return
-            }
-            let elapsed = ProcessInfo.processInfo.systemUptime - startTime
-            let desiredIndex = Int(elapsed * 24.0)
-            guard desiredIndex < frameURLs.count else {
-                timer.invalidate()
-                if !visitorControlsCompletion {
-                    self.finishCurrentPlayback("composite ended; decodeMisses=\(missedFrameTicks)")
-                }
-                return
-            }
-            if desiredIndex != lastDisplayedIndex {
-                if let image = self.cachedImage(for: frameURLs[desiredIndex]) {
-                    sequenceView.layer?.contents = image
-                    lastDisplayedIndex = desiredIndex
-                    self.preloadFrames(frameURLs, from: desiredIndex + 1, count: 32,
-                                       generation: generation, maxPixelSize: maxPixelSize)
-                } else {
-                    missedFrameTicks += 1
-                    self.requestDecodedImage(at: frameURLs[desiredIndex], generation: generation, maxPixelSize: maxPixelSize)
-                }
-            }
-        }
-        timer.tolerance = 0.004
-        frameTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-        installWatchdog(defaultSeconds: max(15, estimatedSeconds, visitorSeconds) + 3)
-        return true
+        // Reset to the actual presentation time rather than catching up by
+        // skipping authored frames after a decode stall.
+        frameSequenceLastHostTime = hostTime
+        preloadFrames(frameSequenceURLs, from: nextIndex + 1, count: 8,
+                      generation: frameSequenceGeneration, maxPixelSize: frameSequenceMaxPixelSize)
     }
 
     private func maximumPixelSize(for sprite: SpriteRecord?) -> Int {
@@ -2578,6 +2829,10 @@ final class SnoopySaverView: ScreenSaverView {
             }
             guard self.frameGeneration == generation else { return }
             autoreleasepool {
+                if let milliseconds = ProcessInfo.processInfo.environment["SNOOPY_TEST_HEIC_DECODE_DELAY_MS"]
+                    .flatMap(Double.init), milliseconds > 0 {
+                    Thread.sleep(forTimeInterval: milliseconds / 1_000.0)
+                }
                 self.cacheDecodedImage(at: url, maxPixelSize: maxPixelSize)
             }
         }

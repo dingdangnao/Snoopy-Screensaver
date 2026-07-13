@@ -284,6 +284,39 @@ public struct PlaybackGraph: Sendable {
         return [transition, target]
     }
 
+    /// A fully resolved character action. The final base pose is part of the
+    /// queue so callers can build one uninterrupted media timeline instead of
+    /// selecting or mounting it after the action has already ended.
+    public func actionSequence(currentPoseID: String, target: AssetRecord) -> CharacterPlaybackSequence? {
+        guard target.kind == "characterAdditionalPose" || target.kind == "characterMoment",
+              let start = target.startCharacterBasePoseID,
+              let end = target.endCharacterBasePoseID,
+              let basePose = assetsByID[end], basePose.kind == "characterBasePose" else { return nil }
+        var assets: [AssetRecord] = []
+        if start != currentPoseID {
+            guard let bridge = poseTransition(from: currentPoseID, to: start) else { return nil }
+            assets.append(bridge)
+        }
+        assets.append(target)
+        assets.append(basePose)
+        return CharacterPlaybackSequence(startPoseID: currentPoseID, endPoseID: end, assets: assets)
+    }
+
+    /// ST Hide finishes in the shared reaction pose. The authored RPH exit
+    /// and target BP are inseparable when entering an IdleScene.
+    public func idleEntrySequence(to targetPoseID: String) -> CharacterPlaybackSequence? {
+        guard let exit = reactionExit(to: targetPoseID),
+              let basePose = assetsByID[targetPoseID], basePose.kind == "characterBasePose" else { return nil }
+        return CharacterPlaybackSequence(startPoseID: "RPH", endPoseID: targetPoseID,
+                                         assets: [exit, basePose])
+    }
+
+    /// Before ST Reveal, the current BP must enter the shared reaction pose.
+    public func idleExitSequence(from currentPoseID: String) -> CharacterPlaybackSequence? {
+        guard let enter = reactionEnter(from: currentPoseID) else { return nil }
+        return CharacterPlaybackSequence(startPoseID: currentPoseID, endPoseID: "RPH", assets: [enter])
+    }
+
     public func reactionQueue(from startID: String, to endID: String) -> [AssetRecord]? {
         guard let enter = reactionEnter(from: startID), let exit = reactionExit(to: endID) else { return nil }
         return [enter, exit]
@@ -330,6 +363,18 @@ public struct PlaybackGraph: Sendable {
                 )
             }
         }
+    }
+}
+
+public struct CharacterPlaybackSequence: Sendable {
+    public let startPoseID: String
+    public let endPoseID: String
+    public let assets: [AssetRecord]
+
+    public init(startPoseID: String, endPoseID: String, assets: [AssetRecord]) {
+        self.startPoseID = startPoseID
+        self.endPoseID = endPoseID
+        self.assets = assets
     }
 }
 

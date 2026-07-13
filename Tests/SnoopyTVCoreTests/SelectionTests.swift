@@ -276,6 +276,52 @@ final class SelectionTests: XCTestCase {
         XCTAssertEqual(fill.height, 600, accuracy: 0.001)
         XCTAssertGreaterThan(fill.width, 960)
         XCTAssertEqual(fill.midX, sixteenByTen.midX, accuracy: 0.001)
+
+        let fourByThree = CGRect(x: 0, y: 0, width: 1024, height: 768)
+        let fourByThreeFit = SpritePlacementResolver.frame(for: character, in: fourByThree)
+        XCTAssertEqual(fourByThreeFit.width, 1024, accuracy: 0.001)
+        XCTAssertEqual(fourByThreeFit.height, 576, accuracy: 0.001)
+        XCTAssertEqual(fourByThreeFit.midX, fourByThree.midX, accuracy: 0.001)
+        XCTAssertEqual(fourByThreeFit.midY, fourByThree.midY, accuracy: 0.001)
+        XCTAssertTrue(fourByThree.contains(fourByThreeFit))
+    }
+
+    func testAllAuthoredCharacterFilenamesAgreeWithPoseMetadata() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let index = try JSONDecoder().decode(
+            AssetIndex.self, from: Data(contentsOf: root.appendingPathComponent("Resources/asset-index.json"))
+        )
+        let assets = index.assets
+        let additional = assets.filter { $0.kind == "characterAdditionalPose" }
+        let moments = assets.filter { $0.kind == "characterMoment" }
+        let bridges = assets.filter { $0.kind == "characterPoseTransition" }
+        let reactions = assets.filter { $0.kind == "characterReactionTransitionPose" }
+        XCTAssertEqual(additional.count, 31)
+        XCTAssertEqual(moments.count, 42)
+        XCTAssertEqual(bridges.count, 12)
+        XCTAssertEqual(reactions.count, 8)
+
+        func shortPose(_ id: String?) -> String { id?.split(separator: "_").last.map(String.init) ?? "" }
+        for asset in additional {
+            let names = asset.sprites.compactMap(\.assetBaseName)
+            XCTAssertTrue(names.contains { $0.contains("Intro_From_\(shortPose(asset.startCharacterBasePoseID))") }, asset.id)
+            XCTAssertTrue(names.contains { $0.contains("Outro_To_\(shortPose(asset.endCharacterBasePoseID))") }, asset.id)
+        }
+        for asset in moments + bridges {
+            XCTAssertTrue(asset.id.contains("\(shortPose(asset.startCharacterBasePoseID))_To_\(shortPose(asset.endCharacterBasePoseID))"), asset.id)
+        }
+        XCTAssertEqual(reactions.filter { $0.phase?.kind == "enter" }.count, 4)
+        XCTAssertEqual(reactions.filter { $0.phase?.kind == "exit" }.count, 4)
+        let graph = PlaybackGraph(assets: assets)
+        let baseIDs = assets.filter { $0.kind == "characterBasePose" }.map(\.id)
+        for start in baseIDs {
+            XCTAssertNotNil(graph.idleExitSequence(from: start), start)
+            for action in additional + moments {
+                XCTAssertNotNil(graph.actionSequence(currentPoseID: start, target: action), "\(start) -> \(action.id)")
+            }
+        }
+        for target in baseIDs { XCTAssertNotNil(graph.idleEntrySequence(to: target), target) }
     }
 
     func testSessionBagDoesNotRepeatBeforeExhaustionAndLoopRangeIsFiveToTen() {
@@ -367,6 +413,31 @@ final class SelectionTests: XCTestCase {
                                                 hideCharacterPoseIDs: ["hidePose"], revealCharacterPoseIDs: ["revealPose"],
                                                 preventsIdleSceneChange: true))
         XCTAssertEqual(transition?.parameterFamilyID, "hide|reveal")
+    }
+
+    func testPlaybackGraphBuildsCompleteActionAndIdleBoundarySequences() {
+        let bp1 = AssetRecord(id: "101_BP001", metadataType: "characterBasePose")
+        let bp2 = AssetRecord(id: "101_BP002", metadataType: "characterBasePose")
+        let bridge = AssetRecord(id: "101_BP001_To_BP002", metadataType: "characterPoseTransition",
+                                 startCharacterBasePoseID: bp1.id, endCharacterBasePoseID: bp2.id)
+        let action = AssetRecord(id: "101_CM001_From_BP002_To_BP001", metadataType: "characterMoment",
+                                 startCharacterBasePoseID: bp2.id, endCharacterBasePoseID: bp1.id)
+        let enter = AssetRecord(
+            id: "101_BP001_To_RPH", metadataType: "characterReactionTransitionPose",
+            phase: TransitionPhaseRecord(kind: "enter", startCharacterPoseID: bp1.id)
+        )
+        let exit = AssetRecord(
+            id: "101_RPH_To_BP002", metadataType: "characterReactionTransitionPose",
+            phase: TransitionPhaseRecord(kind: "exit", endCharacterPoseID: bp2.id)
+        )
+        let graph = PlaybackGraph(assets: [bp1, bp2, bridge, action, enter, exit])
+
+        XCTAssertEqual(graph.actionSequence(currentPoseID: bp1.id, target: action)?.assets.map(\.id),
+                       [bridge.id, action.id, bp1.id])
+        XCTAssertEqual(graph.idleExitSequence(from: bp1.id)?.assets.map(\.id), [enter.id])
+        XCTAssertEqual(graph.idleEntrySequence(to: bp2.id)?.assets.map(\.id), [exit.id, bp2.id])
+        XCTAssertEqual(graph.idleEntrySequence(to: bp2.id)?.startPoseID, "RPH")
+        XCTAssertEqual(graph.idleExitSequence(from: bp1.id)?.endPoseID, "RPH")
     }
 
     func testPlaybackGraphKeepsEveryAuthoredPoseBranchReachable() {

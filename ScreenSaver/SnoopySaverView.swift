@@ -52,6 +52,7 @@ final class SnoopySaverView: ScreenSaverView {
     private var compositeItemStatusObservation: NSKeyValueObservation?
     private var compositePrerollTimeout: DispatchWorkItem?
     private var compositePlaybackGeneration: UInt64 = 0
+    private var compositeDrawablePoll: (() -> Void)?
     private var visitorPlayer: AVQueuePlayer?
     private var visitorLayer: AVPlayerLayer?
     private var visitorPlaceholderLayer: CALayer?
@@ -71,6 +72,7 @@ final class SnoopySaverView: ScreenSaverView {
     private var transitionPrerollTimeout: DispatchWorkItem?
     private var transitionPlaybackGeneration: UInt64 = 0
     private var transitionItemStatusObservations: [NSKeyValueObservation] = []
+    private var transitionDrawablePoll: (() -> Void)?
     private var idleExitTransitionInProgress = false
     private var idleEntryRequestedWhileExiting = false
     private var holdingActiveFrameForIdleEntry = false
@@ -88,6 +90,7 @@ final class SnoopySaverView: ScreenSaverView {
     private var frameSequenceMaxPixelSize = 0
     private var frameSequenceVisitorControlsCompletion = false
     private var frameSequenceDecodeMisses = 0
+    private var frameDrawablePoll: (() -> Void)?
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var backgroundColorView: NSView?
     private var halftoneView: NSImageView?
@@ -302,6 +305,7 @@ final class SnoopySaverView: ScreenSaverView {
         watchdogWorkItem?.cancel()
         watchdogWorkItem = nil
         stopFrameDisplayLink()
+        frameDrawablePoll = nil
         frameGeneration &+= 1
         frameDecodeQueue.cancelAllOperations()
         frameDecodeLock.lock()
@@ -322,6 +326,7 @@ final class SnoopySaverView: ScreenSaverView {
         transitionPrerollTimeout?.cancel()
         transitionPrerollTimeout = nil
         transitionItemStatusObservations.removeAll()
+        transitionDrawablePoll = nil
         transitionPlaybackGeneration &+= 1
         idleExitTransitionInProgress = false
         idleEntryRequestedWhileExiting = false
@@ -335,9 +340,14 @@ final class SnoopySaverView: ScreenSaverView {
             transitionHostView = nil
             holdingCompletedIdleEntrySurface = false
         } else {
-            transitionPlayers.forEach { $0.pause() }
+            teardownPlayerLayers(in: transitionHostView?.layer)
+            transitionPlayers.forEach { teardownPlayer($0) }
             transitionPlayers.removeAll()
-            transitionLayers.forEach { $0.removeFromSuperlayer() }
+            transitionLayers.forEach {
+                teardownPlayerLayers(in: $0)
+                $0.mask = nil
+                $0.removeFromSuperlayer()
+            }
             transitionLayers.removeAll()
             transitionHostView?.removeFromSuperview()
             transitionHostView = nil
@@ -349,8 +359,11 @@ final class SnoopySaverView: ScreenSaverView {
             playerReadyObservation = nil
             activeVideoPlaceholderLayer?.removeFromSuperlayer()
             activeVideoPlaceholderLayer = nil
-            if !preservingIdleComposite { player = nil }
-            playerLayer?.removeFromSuperlayer()
+            if !preservingIdleComposite {
+                teardownPlayer(player)
+                player = nil
+            }
+            teardownPlayerLayer(playerLayer)
             playerLayer = nil
             activeHalftoneLayer?.removeFromSuperlayer()
             activeHalftoneLayer = nil
@@ -374,8 +387,9 @@ final class SnoopySaverView: ScreenSaverView {
             frameView = nil
         } else {
             retirePreviousCompositeSurface()
-            compositeVideoLayer?.removeFromSuperlayer()
+            teardownPlayerLayer(compositeVideoLayer)
             compositeVideoLayer = nil
+            teardownPlayerLayers(in: compositeVideoHostView?.layer)
             compositeVideoHostView?.removeFromSuperview()
             compositeVideoHostView = nil
             frameView?.removeFromSuperview()
@@ -385,6 +399,7 @@ final class SnoopySaverView: ScreenSaverView {
         compositeItemStatusObservation = nil
         compositePrerollTimeout?.cancel()
         compositePrerollTimeout = nil
+        compositeDrawablePoll = nil
         compositePlaybackGeneration &+= 1
         compositeVideoPlaceholderLayer?.removeFromSuperlayer()
         compositeVideoPlaceholderLayer = nil
@@ -396,14 +411,15 @@ final class SnoopySaverView: ScreenSaverView {
             halftoneView = nil
             backgroundImageView?.removeFromSuperview()
             backgroundImageView = nil
-            backgroundVideoPlayer?.pause()
             backgroundVideoReadyObservation = nil
             backgroundVideoPlaceholderLayer?.removeFromSuperlayer()
             backgroundVideoPlaceholderLayer = nil
             backgroundVideoLooper = nil
+            teardownPlayerLayer(backgroundVideoLayer)
+            teardownPlayer(backgroundVideoPlayer)
             backgroundVideoPlayer = nil
-            backgroundVideoLayer?.removeFromSuperlayer()
             backgroundVideoLayer = nil
+            teardownPlayerLayers(in: backgroundVideoHostView?.layer)
             backgroundVideoHostView?.removeFromSuperview()
             backgroundVideoHostView = nil
             overlayView?.removeFromSuperview()
@@ -435,6 +451,7 @@ final class SnoopySaverView: ScreenSaverView {
     private func stopFrameDisplayLink() {
         if let frameDisplayLink { CVDisplayLinkStop(frameDisplayLink) }
         frameDisplayLink = nil
+        frameDrawablePoll = nil
         frameSequenceURLs.removeAll(keepingCapacity: false)
         frameSequenceIndex = 0
         frameSequenceLastHostTime = 0
@@ -443,8 +460,45 @@ final class SnoopySaverView: ScreenSaverView {
         frameSequenceDecodeMisses = 0
     }
 
+    /// AVPlayer keeps its VideoToolbox session and decoded IOSurfaces alive
+    /// after pause(). Explicitly sever the item/queue before releasing the last
+    /// owner so a cached legacyScreenSaver host does not retain decoder memory.
+    private func teardownPlayer(_ player: AVPlayer?) {
+        guard let player else { return }
+        player.pause()
+        player.cancelPendingPrerolls()
+        if let queue = player as? AVQueuePlayer {
+            queue.removeAllItems()
+        } else {
+            player.replaceCurrentItem(with: nil)
+        }
+    }
+
+    /// Transition hosts can contain several nested AVPlayerLayers, including a
+    /// reparented ActiveScene layer. Walk the complete tree so no layer remains
+    /// an implicit owner of a player after that host is retired.
+    private func teardownPlayerLayers(in root: CALayer?) {
+        guard let root else { return }
+        if let mask = root.mask {
+            root.mask = nil
+            teardownPlayerLayers(in: mask)
+        }
+        root.sublayers?.forEach { teardownPlayerLayers(in: $0) }
+        if let playerLayer = root as? AVPlayerLayer {
+            teardownPlayer(playerLayer.player)
+            playerLayer.player = nil
+        }
+    }
+
+    private func teardownPlayerLayer(_ layer: AVPlayerLayer?) {
+        guard let layer else { return }
+        teardownPlayerLayers(in: layer)
+        layer.removeFromSuperlayer()
+    }
+
     private func retirePreviousCompositeSurface() {
-        retiringCompositePlayer?.pause()
+        teardownPlayerLayers(in: retiringCompositeHostView?.layer)
+        teardownPlayer(retiringCompositePlayer)
         retiringCompositePlayer = nil
         retiringCompositeHostView?.removeFromSuperview()
         retiringCompositeHostView = nil
@@ -453,7 +507,8 @@ final class SnoopySaverView: ScreenSaverView {
     }
 
     private func retirePreviousTransitionSurface() {
-        retiringTransitionPlayers.forEach { $0.pause() }
+        teardownPlayerLayers(in: retiringTransitionHostView?.layer)
+        retiringTransitionPlayers.forEach { teardownPlayer($0) }
         retiringTransitionPlayers.removeAll()
         retiringTransitionHostView?.removeFromSuperview()
         retiringTransitionHostView = nil
@@ -470,8 +525,9 @@ final class SnoopySaverView: ScreenSaverView {
     /// IdleScene instead of the ActiveScene and can briefly show two Snoopys.
     private func retireOutgoingIdleSurfaceForTransition() {
         retirePreviousCompositeSurface()
-        compositeVideoLayer?.removeFromSuperlayer()
+        teardownPlayerLayer(compositeVideoLayer)
         compositeVideoLayer = nil
+        teardownPlayerLayers(in: compositeVideoHostView?.layer)
         compositeVideoHostView?.removeFromSuperview()
         compositeVideoHostView = nil
         frameView?.removeFromSuperview()
@@ -483,14 +539,15 @@ final class SnoopySaverView: ScreenSaverView {
         halftoneView = nil
         backgroundImageView?.removeFromSuperview()
         backgroundImageView = nil
-        backgroundVideoPlayer?.pause()
         backgroundVideoReadyObservation = nil
         backgroundVideoPlaceholderLayer?.removeFromSuperlayer()
         backgroundVideoPlaceholderLayer = nil
         backgroundVideoLooper = nil
+        teardownPlayerLayer(backgroundVideoLayer)
+        teardownPlayer(backgroundVideoPlayer)
         backgroundVideoPlayer = nil
-        backgroundVideoLayer?.removeFromSuperlayer()
         backgroundVideoLayer = nil
+        teardownPlayerLayers(in: backgroundVideoHostView?.layer)
         backgroundVideoHostView?.removeFromSuperview()
         backgroundVideoHostView = nil
         overlayView?.removeFromSuperview()
@@ -529,10 +586,13 @@ final class SnoopySaverView: ScreenSaverView {
         transitionPrerollTimeout?.cancel()
         transitionPrerollTimeout = nil
         transitionItemStatusObservations.removeAll()
+        transitionDrawablePoll = nil
         transitionPlaybackGeneration &+= 1
-        transitionPlayers.forEach { $0.pause() }
+        teardownPlayerLayers(in: transitionHostView?.layer)
+        transitionPlayers.forEach { teardownPlayer($0) }
         transitionPlayers.removeAll()
         transitionLayers.forEach {
+            teardownPlayerLayers(in: $0)
             $0.mask = nil
             $0.removeFromSuperlayer()
         }
@@ -1479,6 +1539,7 @@ final class SnoopySaverView: ScreenSaverView {
                 return
             }
             didStart = true
+            self.transitionDrawablePoll = nil
             self.transitionPrerollTimeout?.cancel()
             self.transitionPrerollTimeout = nil
             CATransaction.begin()
@@ -1549,21 +1610,31 @@ final class SnoopySaverView: ScreenSaverView {
                     group.leave()
                 }
             }
-            group.notify(queue: .main) {
-                var waitForDrawable: (() -> Void)!
-                waitForDrawable = {
+            group.notify(queue: .main) { [weak self] in
+                guard let self, self.isPlaying,
+                      self.transitionPlaybackGeneration == generation,
+                      !didStart else { return }
+                self.transitionDrawablePoll = { [weak self] in
+                    guard let self else { return }
                     guard self.isPlaying,
                           self.transitionPlaybackGeneration == generation,
-                          !didStart else { return }
+                          !didStart else {
+                        if self.transitionPlaybackGeneration == generation {
+                            self.transitionDrawablePoll = nil
+                        }
+                        return
+                    }
                     if synchronizedVideoLayers.allSatisfy(\.isReadyForDisplay) {
+                        self.transitionDrawablePoll = nil
                         startSynchronizedPlayback()
                     } else {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) {
-                            waitForDrawable()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) { [weak self] in
+                            guard let self, self.transitionPlaybackGeneration == generation else { return }
+                            self.transitionDrawablePoll?()
                         }
                     }
                 }
-                waitForDrawable()
+                self.transitionDrawablePoll?()
             }
         }
         var readyItems = Set<ObjectIdentifier>()
@@ -1830,7 +1901,6 @@ final class SnoopySaverView: ScreenSaverView {
         var didFinishPreroll = false
         var didStart = false
         var abandonIncoming: ((String) -> Void)!
-        var startPlaybackIfReady: (() -> Void)!
 
         abandonIncoming = { [weak self, weak queue, weak host] reason in
             guard let self, let queue, let host, !didStart,
@@ -1839,6 +1909,7 @@ final class SnoopySaverView: ScreenSaverView {
             didStart = true
             self.compositePrerollTimeout?.cancel()
             self.compositePrerollTimeout = nil
+            self.compositeDrawablePoll = nil
             self.compositeVideoReadyObservation = nil
             self.compositeItemStatusObservation = nil
             if let observer = self.playerEndObserver { NotificationCenter.default.removeObserver(observer) }
@@ -1847,9 +1918,10 @@ final class SnoopySaverView: ScreenSaverView {
             self.playerFailureObserver = nil
             self.compositeVideoPlaceholderLayer?.removeFromSuperlayer()
             self.compositeVideoPlaceholderLayer = nil
-            queue.pause()
+            self.teardownPlayerLayer(videoLayer)
+            self.teardownPlayer(queue)
+            self.teardownPlayerLayers(in: host.layer)
             host.removeFromSuperview()
-            self.compositeVideoLayer?.removeFromSuperlayer()
             self.player = nil
             self.compositeVideoLayer = nil
             self.compositeVideoHostView = nil
@@ -1862,19 +1934,33 @@ final class SnoopySaverView: ScreenSaverView {
             self.scheduleNext(after: 0.1)
         }
 
-        startPlaybackIfReady = { [weak self, weak queue, weak videoLayer, weak host] in
-            guard let self, let queue, let videoLayer, let host, !didStart,
-                  didFinishPreroll, videoLayer.isReadyForDisplay, self.isPlaying,
+        compositeDrawablePoll = { [weak self, weak queue, weak videoLayer, weak host] in
+            guard let self else { return }
+            guard let queue, let videoLayer, let host else {
+                if self.compositePlaybackGeneration == generation {
+                    self.compositeDrawablePoll = nil
+                }
+                return
+            }
+            guard !didStart, self.isPlaying,
                   self.compositePlaybackGeneration == generation,
-                  self.player === queue else { return }
+                  self.player === queue else {
+                if self.compositePlaybackGeneration == generation {
+                    self.compositeDrawablePoll = nil
+                }
+                return
+            }
+            guard didFinishPreroll, videoLayer.isReadyForDisplay else { return }
             if let backgroundLayer = self.backgroundVideoLayer,
                !backgroundLayer.isReadyForDisplay {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) {
-                    startPlaybackIfReady()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) { [weak self] in
+                    guard let self, self.compositePlaybackGeneration == generation else { return }
+                    self.compositeDrawablePoll?()
                 }
                 return
             }
             didStart = true
+            self.compositeDrawablePoll = nil
             self.compositePrerollTimeout?.cancel()
             self.compositePrerollTimeout = nil
             self.compositeVideoReadyObservation = nil
@@ -1900,8 +1986,11 @@ final class SnoopySaverView: ScreenSaverView {
 
         compositeVideoReadyObservation = videoLayer.observe(
             \.isReadyForDisplay, options: [.initial, .new]
-        ) { _, _ in
-            DispatchQueue.main.async { startPlaybackIfReady() }
+        ) { [weak self] _, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.compositePlaybackGeneration == generation else { return }
+                self.compositeDrawablePoll?()
+            }
         }
         compositeItemStatusObservation = queue.observe(
             \.status, options: [.initial, .new]
@@ -1918,7 +2007,8 @@ final class SnoopySaverView: ScreenSaverView {
                         DispatchQueue.main.async {
                             if succeeded {
                                 didFinishPreroll = true
-                                startPlaybackIfReady()
+                                guard self.compositePlaybackGeneration == generation else { return }
+                                self.compositeDrawablePoll?()
                             } else {
                                 abandonIncoming("preroll failed")
                             }
@@ -2095,13 +2185,14 @@ final class SnoopySaverView: ScreenSaverView {
     private func removeVisitorPlayback() {
         if let observer = visitorEndObserver { NotificationCenter.default.removeObserver(observer) }
         visitorEndObserver = nil
-        visitorPlayer?.pause()
+        teardownPlayerLayer(visitorLayer)
+        teardownPlayer(visitorPlayer)
         visitorPlayer = nil
         visitorReadyObservation = nil
         visitorPlaceholderLayer?.removeFromSuperlayer()
         visitorPlaceholderLayer = nil
-        visitorLayer?.removeFromSuperlayer()
         visitorLayer = nil
+        teardownPlayerLayers(in: visitorHostView?.layer)
         visitorHostView?.removeFromSuperview()
         visitorHostView = nil
         visitorSprite = nil
@@ -2692,15 +2783,22 @@ final class SnoopySaverView: ScreenSaverView {
         }
         sequenceView.layer?.contents = firstFrame
         preloadFrames(frameURLs, from: 1, count: 8, generation: generation, maxPixelSize: maxPixelSize)
-        var commitWhenReady: (() -> Void)!
-        commitWhenReady = { [weak self, weak sequenceView] in
-            guard let self, let sequenceView, self.isPlaying,
-                  self.frameGeneration == generation, self.frameView === sequenceView else { return }
-            if let backgroundLayer = self.backgroundVideoLayer,
-               !backgroundLayer.isReadyForDisplay {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) { commitWhenReady() }
+        frameDrawablePoll = { [weak self, weak sequenceView] in
+            guard let self else { return }
+            guard let sequenceView, self.isPlaying,
+                  self.frameGeneration == generation, self.frameView === sequenceView else {
+                if self.frameGeneration == generation { self.frameDrawablePoll = nil }
                 return
             }
+            if let backgroundLayer = self.backgroundVideoLayer,
+               !backgroundLayer.isReadyForDisplay {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 120.0) { [weak self] in
+                    guard let self, self.frameGeneration == generation else { return }
+                    self.frameDrawablePoll?()
+                }
+                return
+            }
+            self.frameDrawablePoll = nil
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             sequenceView.layer?.opacity = 1
@@ -2724,7 +2822,10 @@ final class SnoopySaverView: ScreenSaverView {
             }
             self.installWatchdog(defaultSeconds: max(15, estimatedSeconds, visitorSeconds) + 3)
         }
-        DispatchQueue.main.async(execute: commitWhenReady)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.frameGeneration == generation else { return }
+            self.frameDrawablePoll?()
+        }
         return true
     }
 

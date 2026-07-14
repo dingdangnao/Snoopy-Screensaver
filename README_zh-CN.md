@@ -30,6 +30,8 @@
 * [Google Drive](https://drive.google.com/file/d/1VbsZkGmdhh9eCr4kWAGJ0xXPu_r9sAKx/view?usp=share_link)
 * [百度网盘](https://pan.baidu.com/s/1iUb5QOQVEUUUVpUHGfWW6w?pwd=4xvm)  提取码：`4xvm`
 
+下载完成后，请先解压文件，然后将屏幕保护程序放入 `~/Library/Screen Savers/` 。
+
 ---
 
 ## 项目内容

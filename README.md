@@ -30,6 +30,8 @@ Download the latest prebuilt version of **Snoopy Screensaver for macOS**:
 * [Google Drive](https://drive.google.com/file/d/1VbsZkGmdhh9eCr4kWAGJ0xXPu_r9sAKx/view?usp=share_link)
 * [Baidu Netdisk](https://pan.baidu.com/s/1iUb5QOQVEUUUVpUHGfWW6w?pwd=4xvm)  passcode: `4xvm`
 
+After downloading, extract the archive and place the screen saver file in `~/Library/Screen Savers/`.
+
 ---
 
 ## Project Contents

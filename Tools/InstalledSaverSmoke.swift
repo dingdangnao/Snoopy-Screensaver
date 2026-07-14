@@ -58,5 +58,12 @@ enum InstalledSaverSmoke {
         }
         RunLoop.main.run(until: Date().addingTimeInterval(duration))
         saver.stopAnimation()
+        let postStopDuration = ProcessInfo.processInfo.environment["SNOOPY_SMOKE_POST_STOP_DURATION"]
+            .flatMap(Double.init) ?? 0
+        if postStopDuration > 0 {
+            print("Snoopy smoke: stopped; keeping host alive for \(postStopDuration) seconds")
+            fflush(stdout)
+            RunLoop.main.run(until: Date().addingTimeInterval(postStopDuration))
+        }
     }
 }

@@ -10,6 +10,8 @@ DerivedData/
 .build-*/
 .build-settings/
 .derived-media/
+.release-archive/
+.notary-release/
 
 # Local Apple TV media and machine-specific generated index. These are large,
 # may contain absolute paths, and are not part of the source distribution.

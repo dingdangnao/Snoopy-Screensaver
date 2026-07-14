@@ -27,8 +27,8 @@ This project was built primarily with Codex 😂
 
 Download the latest prebuilt version of **Snoopy Screensaver for macOS**:
 
-* [Google Drive](https://drive.google.com/file/d/1VbsZkGmdhh9eCr4kWAGJ0xXPu_r9sAKx/view?usp=share_link)
-* [Baidu Netdisk](https://pan.baidu.com/s/1iUb5QOQVEUUUVpUHGfWW6w?pwd=4xvm)  passcode: `4xvm`
+* [Google Drive](https://drive.google.com/file/d/1zl3f0EEWFcJw_gS6e96lo1ba6qe5-6TI/view?usp=sharing)
+* [Baidu Netdisk](https://pan.baidu.com/s/1zWw7ZDcAb75JAsjp5x8G1Q?pwd=utpq)  passcode: `utpq`
 
 After downloading, extract the archive and place the screen saver file in `~/Library/Screen Savers/`.
 

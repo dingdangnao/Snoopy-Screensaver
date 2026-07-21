@@ -6,6 +6,10 @@
 	<string>Snoopy TV</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleIconFile</key>
 	<string>ScreenSaverPreview.png</string>
 	<key>NSHumanReadableCopyright</key>
@@ -19,7 +23,7 @@
 	<key>ScreenSaverExports</key>
 	<dict>
 		<key>CFBundleVersion</key>
-		<string>1</string>
+		<string>$(CURRENT_PROJECT_VERSION)</string>
 	</dict>
 </dict>
 </plist>

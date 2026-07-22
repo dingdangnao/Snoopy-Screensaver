@@ -56,7 +56,10 @@ public struct RelevancyScorer: Sendable {
                 case "weather":
                     return !(context.weatherConditions.union(context.moonPhases)).isDisjoint(with: expectedValues)
                 case "timeOfDay": return context.timeOfDay.map(expectedValues.contains) ?? false
-                case "routine": return context.routine.map(expectedValues.contains) ?? false
+                case "routine":
+                    var routines = context.routineConditions
+                    if let routine = context.routine { routines.insert(routine) }
+                    return !routines.isDisjoint(with: expectedValues)
                 case "calendar": return !context.calendarEvents.isDisjoint(with: expectedValues)
                 case "hourlyEvent": return !context.hourlyEvents.isDisjoint(with: expectedValues)
                 case "moonPhase", "moon": return !context.moonPhases.isDisjoint(with: expectedValues)

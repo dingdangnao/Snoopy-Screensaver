@@ -44,8 +44,9 @@ When weather support is disabled, no valid city exists, or the weather snapshot 
 | 18:00–20:59 | `dinner` | `101_AS004`, `103_AS044` |
 | 21:00–22:59 | `bedtime` | `102_AS017`, `103_AS048` |
 | 23:00–04:59 | `lateNight` | `103_AS034`, `103_AS048`, `104_AS062` |
+| 07:00–10:29 | additional `goingToSchool` and `goingToWork` states | `103_AS037` |
 
-The authored metadata for `103_AS037` requires `goingToSchool` or `goingToWork`. The current `SnoopyCalendarResolver.routine` never produces either value, so this video cannot currently be selected through normal runtime context.
+The commute states overlap the ordinary `morning` or `brunch` state. They add `103_AS037` to the weighted pool without removing other morning material. Matching both states does not double its relevance score. A routine match has 3× the base relevance weight, while cooldown and long-term history balancing still prevent it from playing every time.
 
 ## Broad time-of-day conditions
 
@@ -162,7 +163,7 @@ The following 16 AS videos have no contextual conditions and may enter the selec
 | `103_AS034` | Late-night routine |
 | `103_AS035` | Halloween, Halloween season |
 | `103_AS036` | Christmas Eve, Christmas season, Christmas |
-| `103_AS037` | Going to school, going to work (currently unreachable) |
+| `103_AS037` | Going to school and going to work (07:00–10:29) |
 | `103_AS038` | Start of winter, winter |
 | `103_AS039` | Halloween, afternoon, evening, late night |
 | `103_AS040` | Snoopy debut anniversary |
@@ -204,4 +205,3 @@ The playback context calculates the following values, but no current AS video us
 - Moon phases
 
 These values may be used by other asset types, such as visitors, weather effects, or scene palettes.
-

@@ -295,6 +295,10 @@ public struct SelectionContext: Sendable, Equatable {
     public var calendarIdentifier: Calendar.Identifier
     public var timeOfDay: String?
     public var routine: String?
+    /// Extra routine states that may overlap the ordinary day-part routine.
+    /// For example, `morning` remains active while school/work commute states
+    /// are added as occasional-insert conditions in their authored windows.
+    public var routineConditions: Set<String>
     public var weatherConditions: Set<String>
     public var calendarEvents: Set<String>
     public var hourlyEvents: Set<String>
@@ -308,13 +312,15 @@ public struct SelectionContext: Sendable, Equatable {
     public var activeCategories: Set<String>
 
     public init(date: Date = .now, calendarIdentifier: Calendar.Identifier = .gregorian, timeOfDay: String? = nil,
-                routine: String? = nil, weatherConditions: Set<String> = [], calendarEvents: Set<String> = [],
+                routine: String? = nil, routineConditions: Set<String> = [],
+                weatherConditions: Set<String> = [], calendarEvents: Set<String> = [],
                 hourlyEvents: Set<String> = [], moonPhases: Set<String> = [], fulfilledDependencies: Set<String> = [],
                 excludedValues: Set<String> = [], activeCategories: Set<String> = []) {
         self.date = date
         self.calendarIdentifier = calendarIdentifier
         self.timeOfDay = timeOfDay
         self.routine = routine
+        self.routineConditions = routineConditions
         self.weatherConditions = weatherConditions
         self.calendarEvents = calendarEvents
         self.hourlyEvents = hourlyEvents

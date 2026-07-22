@@ -40,7 +40,6 @@ final class SnoopySaverView: ScreenSaverView {
     private var playerLayer: AVPlayerLayer?
     private var playerReadyObservation: NSKeyValueObservation?
     private var activeVideoPlaceholderLayer: CALayer?
-    private var activeHalftoneLayer: CALayer?
     private var activeVideoAssetID: String?
     private var compositeVideoLayer: AVPlayerLayer?
     private var compositeVideoHostView: NSView?
@@ -128,6 +127,8 @@ final class SnoopySaverView: ScreenSaverView {
     private var isPlaying = false
     private var isStopping = true
     private var currentAssetID: String?
+    private var startupFadeView: NSView?
+    private var startupFadeHasBegun = false
     private var weatherRefreshTask: Task<Void, Never>?
     private lazy var configurationController = SnoopyConfigurationController()
 
@@ -151,6 +152,35 @@ final class SnoopySaverView: ScreenSaverView {
         loadStore()
     }
 
+    private func installStartupFade() {
+        startupFadeView?.removeFromSuperview()
+        startupFadeHasBegun = false
+        let fade = NSView(frame: bounds)
+        fade.autoresizingMask = [.width, .height]
+        fade.wantsLayer = true
+        fade.layer?.backgroundColor = NSColor.black.cgColor
+        fade.layer?.zPosition = 10_000
+        fade.alphaValue = 1
+        addSubview(fade, positioned: .above, relativeTo: nil)
+        startupFadeView = fade
+    }
+
+    private func revealStartupFadeIfNeeded() {
+        guard !startupFadeHasBegun, let fade = startupFadeView else { return }
+        startupFadeHasBegun = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 1.0
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            fade.animator().alphaValue = 0
+        } completionHandler: { [weak self, weak fade] in
+            DispatchQueue.main.async {
+                guard let self, let fade, self.startupFadeView === fade else { return }
+                fade.removeFromSuperview()
+                self.startupFadeView = nil
+            }
+        }
+    }
+
     override func startAnimation() {
         super.startAnimation()
         isStopping = false
@@ -170,6 +200,7 @@ final class SnoopySaverView: ScreenSaverView {
         nextVisitorScheduleIndex = 0
         idleSceneChangeRequested = false
         hasPlayedInitialActiveScene = false
+        installStartupFade()
         // Start identically in Preview and full-screen mode. The first media
         // tree installs synchronously and its decoded first-frame placeholder
         // remains visible during AVPlayer preroll; no poster/cover interstitial.
@@ -179,6 +210,9 @@ final class SnoopySaverView: ScreenSaverView {
 
     override func stopAnimation() {
         isStopping = true
+        startupFadeView?.removeFromSuperview()
+        startupFadeView = nil
+        startupFadeHasBegun = false
         weatherRefreshTask?.cancel()
         weatherRefreshTask = nil
         cancelPendingAdvance()
@@ -365,8 +399,6 @@ final class SnoopySaverView: ScreenSaverView {
             }
             teardownPlayerLayer(playerLayer)
             playerLayer = nil
-            activeHalftoneLayer?.removeFromSuperlayer()
-            activeHalftoneLayer = nil
             activeVideoAssetID = nil
             holdingActiveFrameForIdleEntry = false
         }
@@ -637,6 +669,7 @@ final class SnoopySaverView: ScreenSaverView {
             date: now,
             timeOfDay: currentTimeOfDay(),
             routine: SnoopyCalendarResolver.routine(for: now),
+            routineConditions: SnoopyCalendarResolver.routineConditions(for: now),
             weatherConditions: weather,
             calendarEvents: SnoopyCalendarResolver.events(for: now),
             hourlyEvents: SnoopyCalendarResolver.hourlyEvents(
@@ -924,7 +957,9 @@ final class SnoopySaverView: ScreenSaverView {
         return startActiveVideo(selected, from: store, context: context)
     }
 
-    private func startActiveVideo(_ selected: AssetRecord, from store: AssetStore, context: SelectionContext) -> Bool {
+    private func startActiveVideo(
+        _ selected: AssetRecord, from store: AssetStore, context: SelectionContext
+    ) -> Bool {
         guard let sprite = selected.sprites.first(where: { $0.spriteType == "video" }),
            let base = sprite.assetBaseName,
            let directory = try? store.url(for: selected) else { return false }
@@ -936,25 +971,14 @@ final class SnoopySaverView: ScreenSaverView {
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
         player.actionAtItemEnd = .pause
-        let palette = paletteColors(from: store, context: context)
-        layer?.backgroundColor = palette.0.cgColor
-        if let halftoneURL = halftoneImageURL(),
-           let source = CGImageSourceCreateWithURL(halftoneURL as CFURL, nil),
-           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-            let halftone = CALayer()
-            halftone.frame = bounds
-            halftone.contents = image
-            halftone.contentsGravity = .resize
-            halftone.opacity = 0.1
-            layer?.addSublayer(halftone)
-            activeHalftoneLayer = halftone
-        }
+        // Standalone ActiveScene movies retain their authored 16:9 canvas.
+        // They always fill the display height: narrow screens crop the sides,
+        // while ultrawide screens expose black sidebars. Palette and halftone
+        // belong only to layered composites.
+        layer?.backgroundColor = NSColor.black.cgColor
         let videoLayer = AVPlayerLayer(player: player)
-        // ActiveScene is a full-screen movie in tvOS. On non-16:9 displays
-        // scale it proportionally until it covers the viewport; cropping is
-        // preferable to letterboxing and never distorts the source.
         videoLayer.videoGravity = .resizeAspect
-        videoLayer.frame = activeVideoFrame(for: sprite)
+        videoLayer.frame = activeVideoViewportFrame()
         layer?.masksToBounds = true
         layer?.addSublayer(videoLayer)
         if let image = videoPlaceholderImage(at: url) {
@@ -962,17 +986,22 @@ final class SnoopySaverView: ScreenSaverView {
             placeholder.frame = videoLayer.frame
             placeholder.contents = image
             placeholder.contentsGravity = .resizeAspect
-            placeholder.backgroundColor = palette.0.cgColor
+            placeholder.backgroundColor = NSColor.black.cgColor
             layer?.addSublayer(placeholder)
             activeVideoPlaceholderLayer = placeholder
-            playerReadyObservation = videoLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) {
-                [weak self, weak videoLayer] _, _ in
-                guard videoLayer?.isReadyForDisplay == true else { return }
-                DispatchQueue.main.async {
-                    self?.activeVideoPlaceholderLayer?.removeFromSuperlayer()
-                    self?.activeVideoPlaceholderLayer = nil
-                    self?.playerReadyObservation = nil
-                }
+        }
+        playerReadyObservation = videoLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) {
+            [weak self, weak videoLayer] _, _ in
+            guard videoLayer?.isReadyForDisplay == true else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                self.activeVideoPlaceholderLayer?.removeFromSuperlayer()
+                self.activeVideoPlaceholderLayer = nil
+                CATransaction.commit()
+                self.playerReadyObservation = nil
+                self.revealStartupFadeIfNeeded()
             }
         }
         self.player = player
@@ -1446,16 +1475,16 @@ final class SnoopySaverView: ScreenSaverView {
             if let poseFirstFrameLayer { sceneLayer.addSublayer(poseFirstFrameLayer) }
         }
 
-        // Transition masks describe a full-screen wipe, not an idle sprite.
-        // Aspect-fill the matte and outline together so 16:10/ultrawide never
-        // exposes an unmasked strip; the character/idle scene stays aspect-fit.
-        let viewport = activeVideoFrame(for: maskSprite)
+        // Transition masks describe the authored 16:9 ActiveScene canvas, not
+        // an idle sprite. Match the movie's height-filled viewport so narrow
+        // screens crop the wipe and movie by the same amount.
+        let viewport = activeVideoViewportFrame()
         let maskItem = AVPlayerItem(url: maskURL)
         let maskPlayer = AVPlayer(playerItem: maskItem)
         let maskLayer = AVPlayerLayer(player: maskPlayer)
         // The tvOS maskHost is the upper ActiveScene, not the IdleScene.
-        // Its local bounds are 16:9 even when its frame aspect-fills a 16:10
-        // display, so the matte remains aligned with the moving movie.
+        // Its local bounds remain 16:9 on every display, so the matte stays
+        // aligned with the moving movie without a second scaling pass.
         maskLayer.frame = activeSurfaceLayer.bounds
         maskLayer.videoGravity = .resizeAspect
         hostLayer.addSublayer(sceneLayer)
@@ -1564,6 +1593,7 @@ final class SnoopySaverView: ScreenSaverView {
             maskLayer.opacity = 1
             activeSurfaceLayer.mask = maskLayer
             CATransaction.commit()
+            self.revealStartupFadeIfNeeded()
             let hostTime = CMClockGetTime(CMClockGetHostTimeClock())
                 + CMTime(seconds: 0.06, preferredTimescale: 600)
             if let activePlayer = self.player {
@@ -1678,38 +1708,8 @@ final class SnoopySaverView: ScreenSaverView {
     }
 
     private func playRandomComposite(from store: AssetStore, context: SelectionContext) -> Bool {
-        if ProcessInfo.processInfo.environment["SNOOPY_FORCE_COMPOSITE_KIND"] == "switcher" {
-            return playSwitcherSequence(from: store, context: context)
-        }
-        // SS assets are authored switcher/interstitial scenes, not members of
-        // the ordinary IdleScene character queue. Never insert 102_SS001 (or
-        // any sibling) merely because an idle composite failed or a bag slot
-        // happened to select it. They remain available only to explicit tests.
+        // SS/switcher assets are intentionally excluded from runtime playback.
         return playIdleCharacterComposite(from: store, context: context)
-    }
-
-    private func playSwitcherSequence(from store: AssetStore, context: SelectionContext) -> Bool {
-        currentSceneOffset = nil
-        var assets = store.eligible(store.playableAssets(), on: context.date).filter { $0.kind == "switcherScene" }
-        if let forcedID = ProcessInfo.processInfo.environment["SNOOPY_FORCE_SWITCHER_ID"] {
-            assets = assets.filter { $0.id == forcedID }
-        }
-        guard let selected = sessionChoice(from: assets, pool: "switchers", context: context) else { return false }
-        let palette = paletteColors(from: store, context: context)
-        if let plan = phasedVideoPlan(for: selected, store: store) {
-            return startVideoComposition(assetID: selected.id, backgroundImage: nil, backgroundSprite: nil,
-                                         plan: plan, palette: palette, pendingPoseID: nil)
-        }
-        let frames = phasedFrameURLs(for: selected, store: store, minimumDuration: 0)
-        guard !frames.isEmpty else { return false }
-        return startFrameComposition(
-            assetID: selected.id,
-            backgroundImage: nil,
-            backgroundSprite: nil,
-            frameURLs: frames,
-            foregroundSprite: selected.sprites.first(where: { $0.spriteType == "frameSequence" }),
-            palette: palette
-        )
     }
 
     private struct PhasedVideoPlan {
@@ -1975,6 +1975,7 @@ final class SnoopySaverView: ScreenSaverView {
             self.compositeVideoPlaceholderLayer = nil
             self.retirePreviousPlaybackSurfaces()
             CATransaction.commit()
+            self.revealStartupFadeIfNeeded()
             if let characterAnimationKind {
                 self.sessionState.recordCharacterAnimation(characterAnimationKind, duration: estimatedSeconds)
             }
@@ -2117,7 +2118,7 @@ final class SnoopySaverView: ScreenSaverView {
         queue.actionAtItemEnd = .advance
         queue.isMuted = true
         let frame = visitor.isFullscreenEffect
-            ? bounds
+            ? playbackViewportFrame()
             : compositeFrame(for: visitor.media.sprite, ignoresSceneOffset: visitor.ignoresSceneOffset)
         let host = NSView(frame: frame)
         host.wantsLayer = true
@@ -2807,6 +2808,7 @@ final class SnoopySaverView: ScreenSaverView {
             self.backgroundVideoReadyObservation = nil
             self.retirePreviousPlaybackSurfaces()
             CATransaction.commit()
+            self.revealStartupFadeIfNeeded()
             if let characterAnimationKind {
                 self.sessionState.recordCharacterAnimation(
                     characterAnimationKind, duration: TimeInterval(frameURLs.count) / 24.0
@@ -2912,12 +2914,12 @@ final class SnoopySaverView: ScreenSaverView {
         )
     }
 
-    private func activeVideoFrame(for sprite: SpriteRecord?) -> CGRect {
-        let values = sprite?.assetSize ?? [1920, 1080]
-        let size = values.count >= 2
-            ? CGSize(width: values[0], height: values[1])
-            : SpritePlacementResolver.designViewport
-        return SpritePlacementResolver.aspectFillFrame(contentSize: size, in: bounds)
+    private func playbackViewportFrame() -> CGRect {
+        SpritePlacementResolver.playbackViewport(in: bounds)
+    }
+
+    private func activeVideoViewportFrame() -> CGRect {
+        SpritePlacementResolver.activeVideoViewport(in: bounds)
     }
 
     private func videoPlaceholderImage(at url: URL) -> CGImage? {
@@ -3069,9 +3071,8 @@ final class SnoopySaverView: ScreenSaverView {
 
     override func layout() {
         super.layout()
-        playerLayer?.frame = activeVideoFrame(for: foregroundSprite)
-        activeVideoPlaceholderLayer?.frame = activeVideoFrame(for: foregroundSprite)
-        activeHalftoneLayer?.frame = bounds
+        playerLayer?.frame = activeVideoViewportFrame()
+        activeVideoPlaceholderLayer?.frame = activeVideoViewportFrame()
         backgroundColorView?.frame = bounds
         halftoneView?.frame = bounds
         backgroundImageView?.frame = compositeFrame(for: backgroundSprite)
@@ -3087,7 +3088,7 @@ final class SnoopySaverView: ScreenSaverView {
         }
         if let host = visitorHostView {
             host.frame = visitorIsFullscreenEffect
-                ? bounds
+                ? playbackViewportFrame()
                 : compositeFrame(for: visitorSprite, ignoresSceneOffset: visitorIgnoresSceneOffset)
             visitorLayer?.frame = host.bounds
             visitorPlaceholderLayer?.frame = host.bounds

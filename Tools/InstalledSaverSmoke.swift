@@ -10,13 +10,18 @@ enum InstalledSaverSmoke {
                           userInfo: [NSLocalizedDescriptionKey: "usage: InstalledSaverSmoke '/path/Snoopy TV.saver'"])
         }
         _ = NSApplication.shared
+        let environment = ProcessInfo.processInfo.environment
+        let width = environment["SNOOPY_SMOKE_WIDTH"].flatMap(Double.init) ?? 960
+        let height = environment["SNOOPY_SMOKE_HEIGHT"].flatMap(Double.init) ?? 600
         guard let bundle = Bundle(path: CommandLine.arguments[1]) else {
             throw NSError(domain: "InstalledSaverSmoke", code: 3,
                           userInfo: [NSLocalizedDescriptionKey: "invalid saver bundle"])
         }
         try bundle.loadAndReturnError()
         guard let saverType = bundle.principalClass as? ScreenSaverView.Type,
-              let saver = saverType.init(frame: NSRect(x: 0, y: 0, width: 960, height: 600), isPreview: false) else {
+              let saver = saverType.init(
+                frame: NSRect(x: 0, y: 0, width: width, height: height), isPreview: false
+              ) else {
             throw NSError(domain: "InstalledSaverSmoke", code: 4,
                           userInfo: [NSLocalizedDescriptionKey: "unable to instantiate principal ScreenSaverView"])
         }

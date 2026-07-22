@@ -66,6 +66,21 @@ public enum SnoopyCalendarResolver {
         }
     }
 
+    /// Returns all routine conditions that are valid at the same time.
+    /// The ordinary day-part value is retained so commute material remains an
+    /// occasional weighted insert rather than replacing morning and brunch.
+    public static func routineConditions(for date: Date, calendar: Calendar = .current) -> Set<String> {
+        var conditions: Set<String> = [routine(for: date, calendar: calendar)]
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        let minuteOfDay = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        let commuteWindow = 7 * 60..<(10 * 60 + 30)
+        if commuteWindow.contains(minuteOfDay) {
+            conditions.insert("goingToSchool")
+            conditions.insert("goingToWork")
+        }
+        return conditions
+    }
+
     public static func hourlyEvents(for date: Date, sunrise: Date?, sunset: Date?, calendar: Calendar = .current) -> Set<String> {
         var events = Set<String>()
         let minute = calendar.component(.minute, from: date)

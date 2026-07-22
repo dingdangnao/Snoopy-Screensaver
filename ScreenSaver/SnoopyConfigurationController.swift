@@ -35,7 +35,7 @@ final class SnoopyConfigurationController: NSObject {
     }
 
     private func buildInterface() {
-        panel.title = "Snoopy TV 设置"
+        panel.title = "SNOOPY 设置"
         // Let the host supply Aqua or Dark Aqua to the complete view tree.
         // A drawn semantic background stays in sync with the controls even in
         // legacy screen-saver hosts that override a sheet's appearance after

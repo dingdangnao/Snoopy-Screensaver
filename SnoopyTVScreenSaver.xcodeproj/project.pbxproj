@@ -43,7 +43,7 @@
 		B008 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B009 /* ScreenSaver.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenSaver.framework; path = System/Library/Frameworks/ScreenSaver.framework; sourceTree = SDKROOT; };
 		B010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B011 /* Snoopy TV.saver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Snoopy TV.saver"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B011 /* SNOOPY.saver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SNOOPY.saver; sourceTree = BUILT_PRODUCTS_DIR; };
 		B020 /* CalendarResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarResolver.swift; sourceTree = "<group>"; };
 		B021 /* SnoopyAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SnoopyAssets; sourceTree = "<group>"; };
 		B022 /* asset-index.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "asset-index.json"; sourceTree = "<group>"; };
@@ -126,7 +126,7 @@
 		D005 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B011 /* Snoopy TV.saver */,
+				B011 /* SNOOPY.saver */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,8 +160,8 @@
 			dependencies = (
 			);
 			name = SnoopyTVScreenSaver;
-			productName = "Snoopy TV";
-			productReference = B011 /* Snoopy TV.saver */;
+			productName = SNOOPY;
+			productReference = B011 /* SNOOPY.saver */;
 			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
@@ -353,11 +353,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				INFOPLIST_FILE = ScreenSaver/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Snoopy;
+				INFOPLIST_KEY_CFBundleDisplayName = SNOOPY;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dingdangnao.screensaver.snoopy;
-				PRODUCT_NAME = "Snoopy TV";
+				PRODUCT_NAME = SNOOPY;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 				WRAPPER_EXTENSION = saver;
@@ -369,17 +369,23 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 101;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = HUR49FVWF4;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = ScreenSaver/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Snoopy;
+				INFOPLIST_KEY_CFBundleDisplayName = SNOOPY;
+				INSTALL_PATH = "/Library/Screen Savers";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
+				OTHER_CODE_SIGN_FLAGS = "--timestamp";
 				PRODUCT_BUNDLE_IDENTIFIER = com.dingdangnao.screensaver.snoopy;
-				PRODUCT_NAME = "Snoopy TV";
+				PRODUCT_NAME = SNOOPY;
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				WRAPPER_EXTENSION = saver;

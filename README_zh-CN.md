@@ -91,7 +91,7 @@ xcodebuild \
 
 支持的处理器架构以项目中的 Xcode Build Settings 和实际构建产物为准。
 
-如果项目已配置构建后安装脚本，构建成功后会将 `Snoopy TV.saver` 安装到：
+如果项目已配置构建后安装脚本，构建成功后会将 `SNOOPY.saver` 安装到：
 
 ```text
 ~/Library/Screen Savers/

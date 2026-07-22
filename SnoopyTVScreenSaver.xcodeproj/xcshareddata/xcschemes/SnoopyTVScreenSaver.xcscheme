@@ -4,10 +4,10 @@
       <PostActions>
          <ExecutionAction ActionType="Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
-               title="Install Snoopy TV.saver"
-               scriptText="set -eu&#10;&#10;DEST=&quot;$HOME/Library/Screen Savers&quot;&#10;PRODUCT=&quot;$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME&quot;&#10;FINAL=&quot;$DEST/$FULL_PRODUCT_NAME&quot;&#10;STAGING_ROOT=&quot;$DEST/.snoopy-saver-installing.$$&quot;&#10;STAGING=&quot;$STAGING_ROOT/$FULL_PRODUCT_NAME&quot;&#10;&#10;if [ ! -d &quot;$PRODUCT&quot; ]; then&#10;  echo &quot;Built saver not found: $PRODUCT&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;&#10;mkdir -p &quot;$DEST&quot;&#10;trap 'rm -rf &quot;$STAGING_ROOT&quot;' EXIT&#10;rm -rf &quot;$STAGING_ROOT&quot;&#10;mkdir -p &quot;$STAGING_ROOT&quot;&#10;ditto &quot;$PRODUCT&quot; &quot;$STAGING&quot;&#10;codesign --force --deep --sign - &quot;$STAGING&quot;&#10;codesign --verify --deep --strict &quot;$STAGING&quot;&#10;rm -rf &quot;$FINAL&quot;&#10;mv &quot;$STAGING&quot; &quot;$FINAL&quot;&#10;rm -rf &quot;$STAGING_ROOT&quot;&#10;touch &quot;$FINAL&quot;&#10;codesign --verify --deep --strict &quot;$FINAL&quot;&#10;trap - EXIT&#10;echo &quot;Installed: $FINAL&quot;&#10;">
+               title="Install SNOOPY.saver"
+               scriptText="set -eu&#10;&#10;if [ &quot;${CONFIGURATION:-}&quot; = &quot;Release&quot; ] &amp;&amp; [ &quot;${SNOOPY_INSTALL_RELEASE:-0}&quot; != &quot;1&quot; ]; then&#10;  echo &quot;Skipping local installation for Release build.&quot;&#10;  exit 0&#10;fi&#10;&#10;DEST=&quot;$HOME/Library/Screen Savers&quot;&#10;PRODUCT=&quot;$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME&quot;&#10;FINAL=&quot;$DEST/$FULL_PRODUCT_NAME&quot;&#10;STAGING_ROOT=&quot;$DEST/.snoopy-saver-installing.$$&quot;&#10;STAGING=&quot;$STAGING_ROOT/$FULL_PRODUCT_NAME&quot;&#10;&#10;if [ ! -d &quot;$PRODUCT&quot; ]; then&#10;  echo &quot;Built saver not found: $PRODUCT&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;&#10;mkdir -p &quot;$DEST&quot;&#10;trap 'rm -rf &quot;$STAGING_ROOT&quot;' EXIT&#10;rm -rf &quot;$STAGING_ROOT&quot;&#10;mkdir -p &quot;$STAGING_ROOT&quot;&#10;ditto &quot;$PRODUCT&quot; &quot;$STAGING&quot;&#10;codesign --force --deep --sign - &quot;$STAGING&quot;&#10;codesign --verify --deep --strict &quot;$STAGING&quot;&#10;rm -rf &quot;$FINAL&quot;&#10;mv &quot;$STAGING&quot; &quot;$FINAL&quot;&#10;rm -rf &quot;$STAGING_ROOT&quot;&#10;touch &quot;$FINAL&quot;&#10;codesign --verify --deep --strict &quot;$FINAL&quot;&#10;trap - EXIT&#10;echo &quot;Installed: $FINAL&quot;&#10;">
                <EnvironmentBuildable>
-                  <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="Snoopy TV.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
+                  <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="SNOOPY.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
             </ActionContent>
@@ -15,7 +15,7 @@
       </PostActions>
       <BuildActionEntries>
          <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="Snoopy TV.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="SNOOPY.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -26,13 +26,13 @@
    </TestAction>
    <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
       <BuildableProductRunnable runnableDebuggingMode="0">
-         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="Snoopy TV.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
+         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="SNOOPY.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
       <BuildableProductRunnable runnableDebuggingMode="0">
-         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="Snoopy TV.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
+         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E001" BuildableName="SNOOPY.saver" BlueprintName="SnoopyTVScreenSaver" ReferencedContainer="container:SnoopyTVScreenSaver.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

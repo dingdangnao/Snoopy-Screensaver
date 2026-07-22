@@ -34,7 +34,7 @@ xcodebuild \
   ONLY_ACTIVE_ARCH=NO \
   build
 
-PRODUCT="$DERIVED/Build/Products/Release/Snoopy TV.saver"
+PRODUCT="$DERIVED/Build/Products/Release/SNOOPY.saver"
 if [ ! -d "$PRODUCT" ]; then
   echo "构建完成但没有找到：$PRODUCT" >&2
   find "$DERIVED/Build/Products" -maxdepth 3 -name '*.saver' -print >&2 || true
@@ -49,20 +49,20 @@ pkill -x WallpaperAgent 2>/dev/null || true
 # System Settings may rename an in-use replacement to “_副本” and keep the
 # previous bundle loaded from Trash. Unregister and remove every duplicate of
 # this saver before installing one canonical, signed bundle.
-find "$DEST" -maxdepth 1 -type d -name 'Snoopy TV*.saver' \
+find "$DEST" -maxdepth 1 -type d \( -name 'SNOOPY*.saver' -o -name 'Snoopy TV*.saver' \) \
   -exec /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u {} \; 2>/dev/null || true
-find "$DEST" -maxdepth 1 -type d -name 'Snoopy TV*.saver' -exec rm -rf {} +
-ditto "$PRODUCT" "$DEST/Snoopy TV.saver"
-touch "$DEST/Snoopy TV.saver"
+find "$DEST" -maxdepth 1 -type d \( -name 'SNOOPY*.saver' -o -name 'Snoopy TV*.saver' \) -exec rm -rf {} +
+ditto "$PRODUCT" "$DEST/SNOOPY.saver"
+touch "$DEST/SNOOPY.saver"
 # A development identity can verify structurally yet be rejected by AMFI when
 # legacyScreenSaver loads the copied bundle (for example while its certificate
 # trust state is unavailable). This is a local plug-in, so seal the final copy
 # ad-hoc after every resource mutation and verify exactly what will be loaded.
-codesign --force --deep --sign - "$DEST/Snoopy TV.saver"
-codesign --verify --deep --strict "$DEST/Snoopy TV.saver"
-test -f "$DEST/Snoopy TV.saver/Contents/Resources/Assets.car"
+codesign --force --deep --sign - "$DEST/SNOOPY.saver"
+codesign --verify --deep --strict "$DEST/SNOOPY.saver"
+test -f "$DEST/SNOOPY.saver/Contents/Resources/Assets.car"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
-  -f "$DEST/Snoopy TV.saver" 2>/dev/null || true
+  -f "$DEST/SNOOPY.saver" 2>/dev/null || true
 
 # The extension is launchd-managed and can restart while the large resource
 # bundle is still being copied. Restart it once more only after the final
@@ -78,4 +78,4 @@ pkill -x WallpaperAgent 2>/dev/null || true
 CACHE_ROOT="$(dirname "${TMPDIR%/}")/C/com.apple.wallpaper.extension.legacy/com.apple.wallpaper.legacy.thumbnails"
 rm -f "$CACHE_ROOT/60267a63a5c4ec8b424ed1dd8f6742bd0c348613e92822888e50ca3d001980fb.png"
 
-echo "已安装：$DEST/Snoopy TV.saver"
+echo "已安装：$DEST/SNOOPY.saver"

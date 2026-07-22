@@ -89,7 +89,7 @@ xcodebuild \
 
 Supported processor architectures depend on the Xcode Build Settings and the resulting build output.
 
-If the project includes a post-build installation script, a successful build will install `Snoopy TV.saver` to:
+If the project includes a post-build installation script, a successful build will install `SNOOPY.saver` to:
 
 ```text
 ~/Library/Screen Savers/

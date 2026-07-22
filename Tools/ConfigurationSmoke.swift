@@ -8,7 +8,7 @@ enum ConfigurationSmoke {
         guard CommandLine.arguments.count >= 2 else {
             throw NSError(
                 domain: "ConfigurationSmoke", code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "usage: ConfigurationSmoke '/path/Snoopy TV.saver' [screenshot.png]"]
+                userInfo: [NSLocalizedDescriptionKey: "usage: ConfigurationSmoke '/path/SNOOPY.saver' [screenshot.png]"]
             )
         }
         let application = NSApplication.shared

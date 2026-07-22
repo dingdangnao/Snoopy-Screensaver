@@ -7,7 +7,7 @@ enum InstalledSaverSmoke {
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
             throw NSError(domain: "InstalledSaverSmoke", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "usage: InstalledSaverSmoke '/path/Snoopy TV.saver'"])
+                          userInfo: [NSLocalizedDescriptionKey: "usage: InstalledSaverSmoke '/path/SNOOPY.saver'"])
         }
         _ = NSApplication.shared
         let environment = ProcessInfo.processInfo.environment
